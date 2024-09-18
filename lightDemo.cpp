@@ -96,7 +96,11 @@ void timer(int value)
 
 void refresh(int value)
 {
-	//PUT YOUR CODE HERE
+	// Atualiza a cena
+	glutPostRedisplay();
+
+	// Nova chamada ao temporizador após 16 milissegundos
+	glutTimerFunc(1000 / 60, refresh, 0);
 }
 
 // ------------------------------------------------------------
@@ -149,7 +153,7 @@ void renderScene(void) {
 
 	int objId=0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
 
-	for (int i = 0 ; i < 2; ++i) {
+	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 2; ++j) {
 
 			// send the material
@@ -162,7 +166,10 @@ void renderScene(void) {
 			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 			glUniform1f(loc, myMeshes[objId].mat.shininess);
 			pushMatrix(MODEL);
-			translate(MODEL, i*2.0f, 0.0f, j*2.0f);
+			translate(MODEL, i * 2.0f, 0.0f, j * 2.0f);
+
+			if ((i == 0) && (j == 0))
+				rotate(MODEL, -90, 1, 0, 0);
 
 			// send matrices to OGL
 			computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -173,12 +180,13 @@ void renderScene(void) {
 
 			// Render mesh
 			glBindVertexArray(myMeshes[objId].vao);
-			
+
 			glDrawElements(myMeshes[objId].type, myMeshes[objId].numIndexes, GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 
 			popMatrix(MODEL);
 			objId++;
+
 		}
 	}
 
@@ -329,10 +337,11 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 
 GLuint setupShaders() {
 
+
 	// Shader for models
 	shader.init();
-	shader.loadShader(VSShaderLib::VERTEX_SHADER, "shaders/pointlight.vert");
-	shader.loadShader(VSShaderLib::FRAGMENT_SHADER, "shaders/pointlight.frag");
+	shader.loadShader(VSShaderLib::VERTEX_SHADER, "shaders/pointlight_gouraud.vert");
+	shader.loadShader(VSShaderLib::FRAGMENT_SHADER, "shaders/pointlight_gouraud.frag");
 
 	// set semantics for the shader variables
 	glBindFragDataLocation(shader.getProgramIndex(), 0,"colorOut");
@@ -341,10 +350,10 @@ GLuint setupShaders() {
 	//glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
 
 	glLinkProgram(shader.getProgramIndex());
-	printf("InfoLog for Model Rendering Shader\n%s\n\n", shaderText.getAllInfoLogs().c_str());
 
 	if (!shader.isProgramValid()) {
 		printf("GLSL Model Program Not Valid!\n");
+		printf("InfoLog\n%s\n\n", shader.getAllInfoLogs().c_str());
 		exit(1);
 	}
 
@@ -373,6 +382,41 @@ GLuint setupShaders() {
 	
 	return(shader.isProgramLinked() && shaderText.isProgramLinked());
 }
+
+
+
+
+MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
+
+	// Create arrays for material properties
+	float amb1[4] = { amb, amb, amb, 1.0f };
+	float diff1[4] = { diff, diff, diff, 1.0f };
+	float spec1[4] = { spec, spec, spec, 1.0f };
+	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
+
+	// create geometry and VAO of the cylinder
+	amesh = createCylinder(height, radius, sides);
+	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh);
+
+	// create geometry and VAO of the sphere
+	amesh = createSphere(Sradius, Sdivisions);
+	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));  
+	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float)); 
+	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float)); 
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh);
+
+	return amesh; // Return the last created mesh if needed
+}
+
 
 // ------------------------------------------------------------
 //
@@ -407,8 +451,10 @@ void init()
 	float shininess= 100.0f;
 	int texcount = 0;
 
-	// create geometry and VAO of the pawn
-	amesh = createPawn();
+	
+
+	//Flat terrain
+	amesh = createQuad(50, 50);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
@@ -419,7 +465,41 @@ void init()
 
 	
 	// create geometry and VAO of the sphere
-	amesh = createSphere(1.0f, 20);
+	/*amesh = createSphere(1.0f, 20);
+	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh);
+	*/
+
+
+	// Extracting individual float values from the arrays
+	float amb_value = amb[0]; // Use the first value of amb array as the single float value
+	float diff_value = diff[0]; // Similarly, use the first value of diff array
+	float spec_value = spec[0]; // Use the first value of spec array
+	float emissive_value = emissive[0]; // Use the first value of emissive array
+
+	// Calling createTrees with the extracted values
+	amesh = createTrees(3.5f, 0.1f, 20, 0.7, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
+
+	
+
+	// create geometry and VAO of the cone
+	/*amesh = createCone(1.5f, 0.5f, 20);
+	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh); */
+
+
+	// Create geometry and VAO of the cube
+	amesh = createCube();  
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
@@ -428,23 +508,9 @@ void init()
 	amesh.mat.texCount = texcount;
 	myMeshes.push_back(amesh);
 
-	float amb1[]= {0.3f, 0.0f, 0.0f, 1.0f};
-	float diff1[] = {0.8f, 0.1f, 0.1f, 1.0f};
-	float spec1[] = {0.9f, 0.9f, 0.9f, 1.0f};
-	shininess=500.0;
 
-	// create geometry and VAO of the cylinder
-	amesh = createCylinder(1.5f, 0.5f, 20);
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	// create geometry and VAO of the 
-	amesh = createCone(1.5f, 0.5f, 20);
+	// Create cyliders for trees
+	amesh = createCylinder(3.5f, 0.1f, 20);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
@@ -452,6 +518,8 @@ void init()
 	amesh.mat.shininess = shininess;
 	amesh.mat.texCount = texcount;
 	myMeshes.push_back(amesh);
+
+	
 
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);
@@ -460,6 +528,7 @@ void init()
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 }
+
 
 // ------------------------------------------------------------
 //
@@ -487,8 +556,8 @@ int main(int argc, char **argv) {
 	glutReshapeFunc(changeSize);
 
 	glutTimerFunc(0, timer, 0);
-	glutIdleFunc(renderScene);  // Use it for maximum performance
-	//glutTimerFunc(0, refresh, 0);    //use it to to get 60 FPS whatever
+	//glutIdleFunc(renderScene);  // Use it for maximum performance
+	glutTimerFunc(0, refresh, 0);    //use it to to get 60 FPS whatever
 
 //	Mouse and Keyboard Callbacks
 	glutKeyboardFunc(processKeys);

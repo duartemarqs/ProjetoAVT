@@ -70,7 +70,7 @@ MyMesh createQuad(float size_x, float size_y) {
 MyMesh createCube() {
 
 	MyMesh amesh;
-	amesh.numIndexes = faceCount *3;
+	amesh.numIndexes = faceCount * 3;
 
 	glGenVertexArrays(1, &(amesh.vao));
 	glBindVertexArray(amesh.vao);
@@ -78,31 +78,28 @@ MyMesh createCube() {
 	glGenBuffers(2, VboId);
 	glBindBuffer(GL_ARRAY_BUFFER, VboId[0]);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices)+sizeof(normals)+sizeof(texCoords)+sizeof(tangents),NULL,GL_STATIC_DRAW);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(normals), normals);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices)+ sizeof(normals), sizeof(texCoords), texCoords);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices)+sizeof(normals)+sizeof(texCoords), sizeof(tangents), tangents);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(normals) + sizeof(texCoords) + sizeof(tangents), vertices, GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(VERTEX_COORD_ATTRIB);
 	glVertexAttribPointer(VERTEX_COORD_ATTRIB, 4, GL_FLOAT, 0, 0, 0);
 	glEnableVertexAttribArray(NORMAL_ATTRIB);
-	glVertexAttribPointer(NORMAL_ATTRIB, 4, GL_FLOAT, 0, 0, (void *)sizeof(vertices));
+	glVertexAttribPointer(NORMAL_ATTRIB, 4, GL_FLOAT, 0, 0, (void*)sizeof(vertices));
 	glEnableVertexAttribArray(TEXTURE_COORD_ATTRIB);
-	glVertexAttribPointer(TEXTURE_COORD_ATTRIB, 4, GL_FLOAT, 0, 0, (void *)(sizeof(vertices)+ sizeof(normals)));
+	glVertexAttribPointer(TEXTURE_COORD_ATTRIB, 4, GL_FLOAT, 0, 0, (void*)(sizeof(vertices) + sizeof(normals)));
 	glEnableVertexAttribArray(TANGENT_ATTRIB);
-	glVertexAttribPointer(TANGENT_ATTRIB, 4, GL_FLOAT, 0, 0, (void *)(sizeof(vertices) + sizeof(normals) + sizeof(texCoords)));
+	glVertexAttribPointer(TANGENT_ATTRIB, 4, GL_FLOAT, 0, 0, (void*)(sizeof(vertices) + sizeof(normals) + sizeof(texCoords)));
 
 	//index buffer
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VboId[1]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * amesh.numIndexes, faceIndex , GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * amesh.numIndexes, faceIndex, GL_STATIC_DRAW);
 
-// unbind the VAO
+	// unbind the VAO
 	glBindVertexArray(0);
-	
+
 	amesh.type = GL_TRIANGLES;
 	return(amesh);
 }
+
 
 
 MyMesh createSphere(float radius, int divisions) {
@@ -262,6 +259,9 @@ MyMesh createPawn() {
 
 	return(computeVAO(numP, p, points, sides, smoothCos));
 }
+
+
+
 
 MyMesh computeVAO(int numP, float *p, float *points, int sides, float smoothCos) {
 	// Compute and store vertices

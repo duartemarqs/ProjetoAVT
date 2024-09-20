@@ -154,7 +154,7 @@ void renderScene(void) {
 	int objId=0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
 
 	for (int i = 0; i < 2; ++i) {
-		for (int j = 0; j < 2; ++j) {
+		for (int j = 0; j < 3; ++j) {
 
 			// send the material
 			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -170,6 +170,12 @@ void renderScene(void) {
 
 			if ((i == 0) && (j == 0))
 				rotate(MODEL, -90, 1, 0, 0);
+
+			if ((i == 1) && (j == 1)) {
+				rotate(MODEL, -45, 0, 1, 0);
+				translate(MODEL, 2.0, 1, 1.4);
+			}
+				
 
 			// send matrices to OGL
 			computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -419,6 +425,38 @@ MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdi
 	return amesh; // Return the last created mesh if needed
 }
 
+MyMesh createHouses(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
+
+	// Create arrays for material properties
+	float amb1[4] = { amb, amb, amb, 1.0f };
+	float diff1[4] = { diff, diff, diff, 1.0f };
+	float spec1[4] = { spec, spec, spec, 1.0f };
+	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
+
+	// Create geometry and VAO of the cube
+	amesh = createCube();
+	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh);
+
+	// create geometry and VAO of the sphere
+	 //createSphere(Sradius, Sdivisions);
+	amesh = createPyramid(1.0f, 1.0f, 4);
+	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
+	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
+	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
+	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
+	amesh.mat.shininess = shininess;
+	amesh.mat.texCount = texcount;
+	myMeshes.push_back(amesh);
+
+	return amesh; // Return the last created mesh if needed
+}
+
 
 // ------------------------------------------------------------
 //
@@ -486,6 +524,9 @@ void init()
 
 	// Calling createTrees with the extracted values
 	amesh = createTrees(3.5f, 0.1f, 20, 0.7, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
+
+	// Calling createHouses with the extracted values
+	amesh = createHouses(3.5f, 50.0f, 50, 0.9, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
 
 	
 

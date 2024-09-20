@@ -28,6 +28,7 @@ MyMesh createSphere(float radius, int divisions);
 MyMesh createTorus(float innerRadius, float outerRadius, int rings, int sides);
 MyMesh createCylinder(float height, float radius, int sides);
 MyMesh createCone(float height, float baseRadius, int sides);
+MyMesh createPyramid(float height, float radius, int sides);
 MyMesh createPawn();
 MyMesh computeVAO(int numP, float *p, float *pfloatoints, int sides, float smoothCos);
 int revSmoothNormal2(float *p, float *nx, float *ny, float smoothCos, int beginEnd);

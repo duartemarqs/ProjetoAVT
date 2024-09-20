@@ -169,6 +169,65 @@ MyMesh createCone(float height, float baseRadius, int sides) {
 	return(computeVAO((p.size()-4)/2, &(p[2]), &(p[0]), sides, 0.0f));
 }
 
+MyMesh createPyramid(float height, float radius, int sides) {
+
+	MyMesh amesh;
+
+	// Number of vertices: 'sides' for the base and 1 for the apex
+	std::vector<GLfloat> vertices;
+	std::vector<GLuint> indices;
+
+	// Apex vertex (top of the pyramid)
+	vertices.push_back(0.0f);       // x
+	vertices.push_back(height);     // y (height of the pyramid)
+	vertices.push_back(0.0f);       // z
+	vertices.push_back(1.0f);       // w (homogeneous coordinate)
+
+	// Base vertices
+	float angleStep = 2 * 3.14 / sides;
+	for (int i = 0; i < sides; ++i) {
+		float angle = i * angleStep;
+		vertices.push_back(radius * cos(angle));  // x
+		vertices.push_back(0.0f);                // y (base at y = 0)
+		vertices.push_back(radius * sin(angle));  // z
+		vertices.push_back(1.0f);                // w
+	}
+
+	// Indexing for faces: sides triangles for the sides, and one polygon for the base
+	for (int i = 1; i <= sides; ++i) {
+		// Side triangles (apex to two adjacent base vertices)
+		indices.push_back(0);                     // Apex (index 0)
+		indices.push_back(i % sides + 1);         // Next base vertex (with wrap-around)
+		indices.push_back(i);                     // Current base vertex
+	}
+
+	// Create the VAO
+	amesh.numIndexes = indices.size();
+
+	glGenVertexArrays(1, &(amesh.vao));
+	glBindVertexArray(amesh.vao);
+
+	glGenBuffers(2, VboId);
+
+	// Vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, VboId[0]);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &vertices[0], GL_STATIC_DRAW);
+
+	// Vertex attributes (Position only, normals/texcoords can be added similarly)
+	glEnableVertexAttribArray(VERTEX_COORD_ATTRIB);
+	glVertexAttribPointer(VERTEX_COORD_ATTRIB, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+
+	// Index buffer
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VboId[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &indices[0], GL_STATIC_DRAW);
+
+	// Unbind VAO
+	glBindVertexArray(0);
+
+	amesh.type = GL_TRIANGLES;
+	return amesh;
+}
+
 
 MyMesh createPawn() {
 

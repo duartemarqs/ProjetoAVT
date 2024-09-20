@@ -83,6 +83,18 @@ char s[32];
 float lightPos[4] = {4.0f, 6.0f, 2.0f, 1.0f};
 
 
+class Camera {
+public:
+	float camPos[3] = { 0,0,0 };
+	float camTarget[3] = { 0.0f, 0.0f, 0.0f };
+	int type = 0; //0 - perspective , 1 - ortho
+};
+
+// global declaration 
+Camera cams[3];
+int activeCam = 0;
+
+
 void timer(int value)
 {
 	std::ostringstream oss;
@@ -131,6 +143,7 @@ void changeSize(int w, int h) {
 void renderScene(void) {
 
 	GLint loc;
+	GLint m_view[4];
 
 	FrameCount++;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -138,10 +151,32 @@ void renderScene(void) {
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
 	// set the camera using a function similar to gluLookAt
-	lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
+	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
+
+	printf("Camera Position: x: %.2f, y: %.2f, z: %.2f\n",
+		cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+
+	printf("Camera Target: x: %.2f, y: %.2f, z: %.2f\n",
+		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2]);
+
+	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
+		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
+		0, 1, 0);
+
+	glGetIntegerv(GL_VIEWPORT, m_view);
+
+	float ratio = ((m_view[2] - m_view[0]) / (m_view[3] - m_view[1]));
+	loadIdentity(PROJECTION);
+
+	if (cams[activeCam].type == 0) {
+		perspective(53.13f, ratio, 1, 100);
+	}
+	else {
+		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
+	}
 
 	// use our shader
-	
+
 	glUseProgram(shader.getProgramIndex());
 
 		//send the light position in eye coordinates
@@ -232,6 +267,24 @@ void processKeys(unsigned char key, int xx, int yy)
 {
 	switch(key) {
 
+	case '1':
+		activeCam = 0;
+		printf("Active Camera: %d\n", activeCam);
+		printf("Camera 1 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+
+	case '2':
+		activeCam = 1;
+		printf("Active Camera: %d\n", activeCam);
+		printf("Camera 2 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+
+	case '3':
+		activeCam = 2;
+		printf("Active Camera: %d\n", activeCam);
+		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+ 
 		case 27:
 			glutLeaveMainLoop();
 			break;
@@ -477,6 +530,27 @@ void init()
 
 	/// Initialization of freetype library with font_name file
 	freeType_init(font_name);
+
+
+	// top 
+	//cams[0].camPos[1] = 20;
+	cams[0].camPos[0] = 20;
+	cams[0].camPos[1] = 20;
+	cams[0].camPos[2] = 20;
+	// top ortho 
+	//cams[1].camPos[1] = 20;
+	cams[1].camPos[0] = 20;
+	cams[1].camPos[1] = 20;
+	cams[1].camPos[2] = 20;
+	cams[1].type = 1;
+
+	
+
+	// follow sleigh 
+	/*cams[2].camPos[0] = (-boat.direction * dist).x;
+	cams[2].camPos[0] = ((-boat.direction * dist) + (0, height, 0)).y;
+	cams[2].camPos[2] = (-boat.direction * dist).z;
+	cams[2].camTarget[] = boat.position;*/
 
 	// set the camera position based on its spherical coordinates
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);

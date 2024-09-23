@@ -52,6 +52,7 @@ const string font_name = "fonts/arial.ttf";
 //Vectors with meshes
 vector<struct MyMesh> myMeshes;
 vector<struct MyMesh> boatMeshes;
+vector<struct MyMesh> rowMeshes;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -140,6 +141,132 @@ void changeSize(int w, int h) {
 //
 // Render stufff
 //
+
+/*
+*/
+void renderBoat(GLint loc) {
+	int meshId = 0;
+
+	// printf("boatMeshes size: %d\n", boatMeshes.size());
+	do {
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, boatMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, boatMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, boatMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, boatMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transformations
+		if (meshId == 0) {	// base
+			translate(MODEL, 0.0f, 1.0f, 0.0f);
+			rotate(MODEL, 90, 1, 0, 0);
+		}
+		else if (meshId == 1) {	 // left wall
+			translate(MODEL, -0.5f, 1.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
+			rotate(MODEL, 90, 0, 1, 0);
+		}
+		else if (meshId == 2) {	// right wall
+			translate(MODEL, 0.5f, 1.4f, 0.0f);
+			rotate(MODEL, 90, 0, 1, 0);
+		}
+		else if (meshId == 3) { // back wall
+			translate(MODEL, 0.0f, 1.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
+		}
+		else if (meshId == 4) { // front wall
+			translate(MODEL, 0.0f, 1.4f, -1.25f);
+		}
+		else if (meshId == 5) { // prow
+			translate(MODEL, 0.0f, 1.4f, -1.25f);
+			rotate(MODEL, 45, 0, 0, 1);
+			rotate(MODEL, -90, 1, 0, 0);
+		}
+		else if (meshId == 6) { // left row
+			translate(MODEL, 0.0f, 2.0f, 0.0f);
+		}
+		else if (meshId == 7) { 
+			translate(MODEL, 0.0f, 3.0f, 0.0f);
+		}
+		else if (meshId == 8) { // right row
+			translate(MODEL, 0.0f, 4.0f, 0.0f);
+		}
+		else if (meshId == 9) { 
+			translate(MODEL, 0.0f, 5.0f, 0.0f);
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(boatMeshes[meshId].vao);
+
+		glDrawElements(boatMeshes[meshId].type, boatMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < boatMeshes.size());
+
+}
+
+void renderRows(GLint loc) {
+	int meshId = 0;
+
+	do {
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, rowMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, rowMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, rowMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, rowMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transformations
+		if (meshId == 0) { // left row
+			translate(MODEL, -1.0f, 2.0f, 0.0f);
+			rotate(MODEL, 90, 0, 0, 1);
+		}
+		else if (meshId == 1) {
+			translate(MODEL, -2.1f, 2.05f, 0.0f);
+			rotate(MODEL, 90, 0, 0, 1);
+		}
+		else if (meshId == 2) { // right row
+			translate(MODEL, 1.0f, 2.0f, 0.0f);
+			rotate(MODEL, -90, 0, 0, 1);
+		}
+		else if (meshId == 3) {
+			translate(MODEL, 2.1f, 2.05f, 0.0f);
+			rotate(MODEL, -90, 0, 0, 1);
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(rowMeshes[meshId].vao);
+
+		glDrawElements(rowMeshes[meshId].type, rowMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < rowMeshes.size());
+
+}
 
 void renderScene(void) {
 
@@ -231,58 +358,14 @@ void renderScene(void) {
 		}
 	}
 
-	// Render and transform boat
-	
-	int meshId = 0;
-	// printf("boatMeshes size: %d\n", boatMeshes.size());
-	do {
-		// send the material
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-		glUniform4fv(loc, 1, boatMeshes[meshId].mat.ambient);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-		glUniform4fv(loc, 1, boatMeshes[meshId].mat.diffuse);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-		glUniform4fv(loc, 1, boatMeshes[meshId].mat.specular);
-		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-		glUniform1f(loc, boatMeshes[meshId].mat.shininess);
-		pushMatrix(MODEL);
 
-		// Transformations
-		if (meshId == 0) {	// base
-			translate(MODEL, 0.0f, 1.0f, 0.0f);
-			rotate(MODEL, 90, 1, 0, 0);
-		} else if (meshId == 1) {	 // left wall
-			translate(MODEL, -0.5f, 1.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
-			rotate(MODEL, 90, 0, 1, 0);
-		} else if (meshId == 2) {	// right wall
-			translate(MODEL, 0.5f, 1.4f, 0.0f);
-			rotate(MODEL, 90, 0, 1, 0);
-		} else if (meshId == 3) { // back wall
-			translate(MODEL, 0.0f, 1.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
-		} else if (meshId == 4) { // front wall
-			translate(MODEL, 0.0f, 1.4f, -1.25f);
-		} else if (meshId == 5) { // prow
-			translate(MODEL, 0.0f, 1.4f, -1.25f);
-			rotate(MODEL, 45, 0, 0, 1);
-			rotate(MODEL, -90, 1, 0, 0);
-		}
-
-		// send matrices to OGL
-		computeDerivedMatrix(PROJ_VIEW_MODEL);
-		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-		computeNormalMatrix3x3();
-		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
-
-		// Render mesh
-		glBindVertexArray(boatMeshes[meshId].vao);
-
-		glDrawElements(boatMeshes[meshId].type, boatMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		popMatrix(MODEL);
-		meshId++;
-	} while (meshId < boatMeshes.size());
+	// Render and transform boat parts into one combined mesh
+	/*
+	translate(MODEL, 5.0, 0.0, 0.0);
+	rotate(MODEL, 30, 0.0, 1.0, 0.0);
+	*/
+	renderBoat(loc);
+	renderRows(loc);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -497,72 +580,6 @@ GLuint setupShaders() {
 	return(shader.isProgramLinked() && shaderText.isProgramLinked());
 }
 
-
-
-
-MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
-
-	// Create arrays for material properties
-	float amb1[4] = { amb, amb, amb, 1.0f };
-	float diff1[4] = { diff, diff, diff, 1.0f };
-	float spec1[4] = { spec, spec, spec, 1.0f };
-	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
-
-	// create geometry and VAO of the cylinder
-	amesh = createCylinder(height, radius, sides);
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	// create geometry and VAO of the sphere
-	amesh = createSphere(Sradius, Sdivisions);
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));  
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float)); 
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float)); 
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	return amesh; // Return the last created mesh if needed
-}
-
-MyMesh createHouses(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
-
-	// Create arrays for material properties
-	float amb1[4] = { amb, amb, amb, 1.0f };
-	float diff1[4] = { diff, diff, diff, 1.0f };
-	float spec1[4] = { spec, spec, spec, 1.0f };
-	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
-
-	// Create geometry and VAO of the cube
-	amesh = createCube();
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	// create geometry and VAO of the sphere
-	 //createSphere(Sradius, Sdivisions);
-	amesh = createPyramid(1.0f, 1.0f, 4);
-	memcpy(amesh.mat.ambient, amb1, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff1, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec1, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive1, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-
-	return amesh; // Return the last created mesh if needed
-}
-
 void setMaterial(MyMesh& mesh, float amb, float diff, float spec, float emissive, float shininess, int texcount) {
 	// Criar arrays para as propriedades do material
 	float amb1[4] = { amb, amb, amb, 1.0f };
@@ -579,23 +596,67 @@ void setMaterial(MyMesh& mesh, float amb, float diff, float spec, float emissive
 	mesh.mat.texCount = texcount;
 }
 
-/*
-void transformBoat(float baseWidth, float baseLength) {
-	// Transladar e rotacionar as paredes e a proa
+MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
 
-	// Paredes laterais
-	translate(&boatMeshes.at(1), baseWidth / 2, 0, 0);  // Translada para a direita
-	translate(boatMeshes[2], -baseWidth / 2, 0, 0);  // Translada para a esquerda
+	// Create arrays for material properties
+	float amb1[4] = { amb, amb, amb, 1.0f };
+	float diff1[4] = { diff, diff, diff, 1.0f };
+	float spec1[4] = { spec, spec, spec, 1.0f };
+	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
 
-	// Paredes traseira e frontal
-	translate(boatMeshes[3], 0, 0, -baseLength / 2);  // Translada para trás
-	translate(boatMeshes[4], 0, 0, baseLength / 2);  // Translada para frente
+	// create geometry and VAO of the cylinder
+	amesh = createCylinder(height, radius, sides);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	myMeshes.push_back(amesh);
 
-	// Proa
-	translate(boatMeshes[5], 0, 0, baseLength / 2);       // Coloca a proa na frente do barco
-	rotate(boatMeshes[5], 90, 0, 1, 0);                   // Rotaciona a proa para apontar para frente
+	// create geometry and VAO of the sphere
+	amesh = createSphere(Sradius, Sdivisions);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	myMeshes.push_back(amesh);
+
+	return amesh; // Return the last created mesh if needed
 }
+
+MyMesh createHouses(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
+
+	// Create arrays for material properties
+	float amb1[4] = { amb, amb, amb, 1.0f };
+	float diff1[4] = { diff, diff, diff, 1.0f };
+	float spec1[4] = { spec, spec, spec, 1.0f };
+	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
+
+	// Create geometry and VAO of the cube
+	amesh = createCube();
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	myMeshes.push_back(amesh);
+
+	// create geometry and VAO of the sphere
+	 //createSphere(Sradius, Sdivisions);
+	amesh = createPyramid(1.0f, 1.0f, 4);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	myMeshes.push_back(amesh);
+
+	return amesh; // Return the last created mesh if needed
+}
+
+/*
 */
+void createRows(MyMesh amesh, float baseLength, float amb, float diff, float spec, float emissive, float shininess, int texcount) {
+	// Remos direito e esquerdo
+	amesh = createCylinder(baseLength * (5.0 / 7.0), baseLength / 25.0, 20);	// cabo
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	rowMeshes.push_back(amesh);
+	amesh = createQuad(0.5, 0.8);	// pá
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	rowMeshes.push_back(amesh);
+
+	amesh = createCylinder(baseLength * (5.0 / 7.0), baseLength / 25.0, 20);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	rowMeshes.push_back(amesh);
+	amesh = createQuad(0.5, 0.8);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	rowMeshes.push_back(amesh);
+}
 
 MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
 	// MyMesh boat;
@@ -637,6 +698,8 @@ MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, fl
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	boatMeshes.push_back(amesh);
 
+	createRows(amesh, baseLength, amb, diff, spec, emissive, shininess, texcount);
+	
 	return amesh;
 }
 
@@ -708,7 +771,8 @@ void init()
 
 	
 	// create geometry and VAO of the sphere
-	/*amesh = createSphere(1.0f, 20);
+	/*
+	amesh = createSphere(1.0f, 20);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
 	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
@@ -734,6 +798,7 @@ void init()
 	// Calling createBoat with the extracted values
 	amesh = createBoat(1.0f, 2.5f, 0.8f, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
 	
+
 	// create geometry and VAO of the cone
 	/*amesh = createCone(1.5f, 0.5f, 20);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
@@ -757,6 +822,7 @@ void init()
 
 
 	// Create cyliders for trees
+	/*
 	amesh = createCylinder(3.5f, 0.1f, 20);
 	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
 	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
@@ -765,6 +831,7 @@ void init()
 	amesh.mat.shininess = shininess;
 	amesh.mat.texCount = texcount;
 	myMeshes.push_back(amesh);
+	*/
 
 	
 

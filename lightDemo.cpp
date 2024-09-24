@@ -34,6 +34,10 @@
 
 #include "avtFreeType.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 using namespace std;
 
 #define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
@@ -103,11 +107,13 @@ public:
 	float speed;
 	float direction[3];
 	float pos[3];
+	float angle;  
 };
 
 Boat boat;
 float deltaT = 0.05;
-float decay = 0.01;
+float decaySpeed = 0.99;  
+
 
 
 void timer(int value)
@@ -121,7 +127,7 @@ void timer(int value)
     glutTimerFunc(1000, timer, 0);
 }
 
-/*
+
 void animation(int value) {
 	
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
@@ -132,11 +138,11 @@ void animation(int value) {
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
 
-	íf (boat.speed > 0) boat.speed *= decaySpeed;
+	if (boat.speed > 0) boat.speed *= decaySpeed;
 
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
-*/
+
 
 void refresh(int value)
 {
@@ -177,7 +183,9 @@ void changeSize(int w, int h) {
 void renderBoat(GLint loc) {
 	int meshId = 0;
 
-	// printf("boatMeshes size: %d\n", boatMeshes.size());
+	pushMatrix(MODEL);
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
+
 	do {
 		// send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -244,10 +252,14 @@ void renderBoat(GLint loc) {
 		meshId++;
 	} while (meshId < boatMeshes.size());
 
+	popMatrix(MODEL);
 }
 
 void renderRows(GLint loc) {
 	int meshId = 0;
+
+	pushMatrix(MODEL);
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
 	do {
 		// send the material
@@ -296,6 +308,7 @@ void renderRows(GLint loc) {
 		meshId++;
 	} while (meshId < rowMeshes.size());
 
+	popMatrix(MODEL);
 }
 
 void renderScene(void) {
@@ -311,11 +324,11 @@ void renderScene(void) {
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
 
-	printf("Camera Position: x: %.2f, y: %.2f, z: %.2f\n",
+	/*printf("Camera Position: x: %.2f, y: %.2f, z: %.2f\n",
 		cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
 
 	printf("Camera Target: x: %.2f, y: %.2f, z: %.2f\n",
-		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2]);
+		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2]); */
 
 	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
 		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
@@ -449,6 +462,24 @@ void processKeys(unsigned char key, int xx, int yy)
 		activeCam = 2;
 		printf("Active Camera: %d\n", activeCam);
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+
+		
+	case 'a':  
+		boat.angle += 5.0f;  
+		break;
+
+	case 'd':  
+		boat.angle -= 5.0f;  
+		break;
+
+	case 'w': 
+		boat.speed += 0.1f;  
+		break;
+
+	case 's': 
+		boat.speed -= 0.1f; 
+		if (boat.speed < 0) boat.speed = 0;  // Não permitir velocidade negativa
 		break;
  
 		case 27:
@@ -926,6 +957,9 @@ int main(int argc, char **argv) {
 		return(1);
 
 	init();
+
+	// Iniciar a animação
+	glutTimerFunc(1 / deltaT, animation, 0);
 
 	//  GLUT main loop
 	glutMainLoop();

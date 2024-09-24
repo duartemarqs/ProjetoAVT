@@ -184,7 +184,11 @@ void renderBoat(GLint loc) {
 	int meshId = 0;
 
 	pushMatrix(MODEL);
-	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
+	// 1. Transladar o barco para a sua posição atual
+	translate(MODEL, -boat.pos[0], boat.pos[1], -boat.pos[2]);
+
+	// 2. Rotacionar o barco em torno do eixo Y (depois da translação)
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o próprio eixo
 
 	do {
 		// send the material
@@ -259,7 +263,11 @@ void renderRows(GLint loc) {
 	int meshId = 0;
 
 	pushMatrix(MODEL);
-	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
+	// 1. Transladar o barco para a sua posição atual
+	translate(MODEL, -boat.pos[0], boat.pos[1], -boat.pos[2]);
+
+	// 2. Rotacionar o barco em torno do eixo Y (depois da translação)
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o próprio eixo
 
 	do {
 		// send the material
@@ -786,24 +794,26 @@ void init()
 
 
 	// top 
-	//cams[0].camPos[1] = 20;
 	cams[0].camPos[0] = 0;
 	cams[0].camPos[1] = 40;
 	cams[0].camPos[2] = 0.1;
 	// top ortho 
-	//cams[1].camPos[1] = 20;
 	cams[1].camPos[0] = 0;
 	cams[1].camPos[1] = 40;
 	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
 
-	
-
-	// follow sleigh 
-	/*cams[2].camPos[0] = (-boat.direction * dist).x;
-	cams[2].camPos[0] = ((-boat.direction * dist) + (0, height, 0)).y;
-	cams[2].camPos[2] = (-boat.direction * dist).z;
-	cams[2].camTarget[] = boat.position;*/
+	/*
+	float dist = 10.0f;  
+	float height = 5.0f; 
+	cams[2].camPos[0] = boat.pos[0] - boat.direction[0] * dist;
+	cams[2].camPos[1] = boat.pos[1] + height; 
+	cams[2].camPos[2] = boat.pos[2] - boat.direction[2] * dist;
+	// camTarget é o barco
+	cams[2].camTarget[0] = boat.pos[0];
+	cams[2].camTarget[1] = boat.pos[1];
+	cams[2].camTarget[2] = boat.pos[2];
+	*/
 
 	// set the camera position based on its spherical coordinates
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);

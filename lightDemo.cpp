@@ -84,7 +84,7 @@ long myTime,timebase = 0,frame = 0;
 char s[32];
 float lightPos[4] = {4.0f, 6.0f, 2.0f, 1.0f};
 
-
+// Camera -------------
 class Camera {
 public:
 	float camPos[3] = { 0,0,0 };
@@ -97,6 +97,19 @@ Camera cams[3];
 int activeCam = 0;
 
 
+// Boat ---------------
+class Boat {
+public:
+	float speed;
+	float direction[3];
+	float pos[3];
+};
+
+Boat boat;
+float deltaT = 0.05;
+float decay = 0.01;
+
+
 void timer(int value)
 {
 	std::ostringstream oss;
@@ -107,6 +120,23 @@ void timer(int value)
     FrameCount = 0;
     glutTimerFunc(1000, timer, 0);
 }
+
+/*
+void animation(int value) {
+	
+	boat.direction[0] = sin(boat.angle * M_PI / 180);
+	boat.direction[1] = 0;
+	boat.direction[2] = cos(boat.angle * M_PI / 180);
+
+	boat.pos[0] += boat.direction[0] * boat.speed * deltaT;
+	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
+	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
+
+	íf (boat.speed > 0) boat.speed *= decaySpeed;
+
+	glutTimerFunc(1 / deltaT, animation, 0);
+}
+*/
 
 void refresh(int value)
 {
@@ -726,14 +756,14 @@ void init()
 
 	// top 
 	//cams[0].camPos[1] = 20;
-	cams[0].camPos[0] = 20;
-	cams[0].camPos[1] = 20;
-	cams[0].camPos[2] = 20;
+	cams[0].camPos[0] = 0;
+	cams[0].camPos[1] = 40;
+	cams[0].camPos[2] = 0.1;
 	// top ortho 
 	//cams[1].camPos[1] = 20;
-	cams[1].camPos[0] = 20;
-	cams[1].camPos[1] = 20;
-	cams[1].camPos[2] = 20;
+	cams[1].camPos[0] = 0;
+	cams[1].camPos[1] = 40;
+	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
 
 	

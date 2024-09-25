@@ -97,7 +97,7 @@ public:
 };
 
 // global declaration 
-Camera cams[3];
+Camera cams[4];
 int activeCam = 0;
 
 
@@ -331,6 +331,7 @@ void renderScene(void) {
 	loadIdentity(MODEL);
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
+	if (activeCam == 3) lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
 
 	/*printf("Camera Position: x: %.2f, y: %.2f, z: %.2f\n",
 		cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
@@ -468,6 +469,11 @@ void processKeys(unsigned char key, int xx, int yy)
 
 	case '3':
 		activeCam = 2;
+		printf("Active Camera: %d\n", activeCam);
+		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+	case '4':
+		activeCam = 3;
 		printf("Active Camera: %d\n", activeCam);
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
 		break;
@@ -802,6 +808,12 @@ void init()
 	cams[1].camPos[1] = 40;
 	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
+
+	// original perspective
+	cams[3].camPos[0] = 1;
+	cams[3].camPos[1] = 1;
+	cams[3].camPos[2] = 1;
+	//cams[3].type = 0;
 
 	/*
 	float dist = 10.0f;  

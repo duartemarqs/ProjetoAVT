@@ -55,6 +55,8 @@ const string font_name = "fonts/arial.ttf";
 
 //Vectors with meshes
 vector<struct MyMesh> myMeshes;
+vector<struct MyMesh> houseMeshes;
+vector<struct MyMesh> treeMeshes;
 vector<struct MyMesh> boatMeshes;
 vector<struct MyMesh> rowMeshes;
 
@@ -180,6 +182,101 @@ void changeSize(int w, int h) {
 
 /*
 */
+void renderTree(GLint loc) {
+	int meshId = 0;
+	pushMatrix(MODEL);
+
+	do {
+		// printf("Dentro do while, meshId = %d\n", meshId);
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, treeMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, treeMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, treeMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, treeMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transformations
+		if (meshId == 0) { // cylinder
+			translate(MODEL, -4.0, 1.75, -2.0);
+		}
+		else if (meshId == 1) {	// pyramid
+			translate(MODEL, -4.0, 3.5, -2.0);
+		}
+		/*
+		*/
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(treeMeshes[meshId].vao);
+
+		glDrawElements(treeMeshes[meshId].type, treeMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < treeMeshes.size());
+
+	popMatrix(MODEL);
+}
+
+void renderHouse(GLint loc) {
+	int meshId = 0;
+	pushMatrix(MODEL);
+
+	do {
+		// printf("Dentro do while, meshId = %d\n", meshId);
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, houseMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, houseMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, houseMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, houseMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transformations
+		if (meshId == 0) { // cube
+			translate(MODEL, 2.0, 0.0, 1.4);
+		}
+		/*
+		*/
+		else if (meshId == 1) {	// pyramid
+			translate(MODEL, 2.5, 1.0, 1.9);
+			rotate(MODEL, -45, 0, 1, 0);
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(houseMeshes[meshId].vao);
+
+		glDrawElements(houseMeshes[meshId].type, houseMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < houseMeshes.size());
+
+	popMatrix(MODEL);
+}
+
 void renderBoat(GLint loc) {
 	int meshId = 0;
 
@@ -204,39 +301,27 @@ void renderBoat(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) {	// base
-			translate(MODEL, 0.0f, 1.0f, 0.0f);
+			translate(MODEL, 0.0f, 0.0f, 0.0f);
 			rotate(MODEL, 90, 1, 0, 0);
 		}
 		else if (meshId == 1) {	 // left wall
-			translate(MODEL, -0.5f, 1.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
+			translate(MODEL, -0.5f, 0.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 2) {	// right wall
-			translate(MODEL, 0.5f, 1.4f, 0.0f);
+			translate(MODEL, 0.5f, 0.4f, 0.0f);
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 3) { // back wall
-			translate(MODEL, 0.0f, 1.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
+			translate(MODEL, 0.0f, 0.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
 		}
 		else if (meshId == 4) { // front wall
-			translate(MODEL, 0.0f, 1.4f, -1.25f);
+			translate(MODEL, 0.0f, 0.4f, -1.25f);
 		}
 		else if (meshId == 5) { // prow
-			translate(MODEL, 0.0f, 1.4f, -1.25f);
+			translate(MODEL, 0.0f, 0.4f, -1.25f);
 			rotate(MODEL, 45, 0, 0, 1);
 			rotate(MODEL, -90, 1, 0, 0);
-		}
-		else if (meshId == 6) { // left row
-			translate(MODEL, 0.0f, 2.0f, 0.0f);
-		}
-		else if (meshId == 7) { 
-			translate(MODEL, 0.0f, 3.0f, 0.0f);
-		}
-		else if (meshId == 8) { // right row
-			translate(MODEL, 0.0f, 4.0f, 0.0f);
-		}
-		else if (meshId == 9) { 
-			translate(MODEL, 0.0f, 5.0f, 0.0f);
 		}
 
 		// send matrices to OGL
@@ -283,19 +368,19 @@ void renderRows(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) { // left row
-			translate(MODEL, -1.0f, 2.0f, 0.0f);
+			translate(MODEL, -1.0f, 0.9f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 1) {
-			translate(MODEL, -2.1f, 2.05f, 0.0f);
+			translate(MODEL, -2.1f, 0.95f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 2) { // right row
-			translate(MODEL, 1.0f, 2.0f, 0.0f);
+			translate(MODEL, 1.0f, 0.9f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 		else if (meshId == 3) {
-			translate(MODEL, 2.1f, 2.05f, 0.0f);
+			translate(MODEL, 2.1f, 0.95f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 
@@ -359,56 +444,58 @@ void renderScene(void) {
 
 	glUseProgram(shader.getProgramIndex());
 
-		//send the light position in eye coordinates
-		//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
+	//send the light position in eye coordinates
+	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
 
-		float res[4];
-		multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
-		glUniform4fv(lPos_uniformId, 1, res);
+	float res[4];
+	multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
+	glUniform4fv(lPos_uniformId, 1, res);
 
-	int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
+	// int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
 
-	for (int i = 0; i < 2; ++i) {
-		for (int j = 0; j < 3; ++j) {
+	// for (int i = 0; i < 2; ++i) {
+		// for (int j = 0; j < 3; ++j) {
 
-			// send the material
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.ambient);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.diffuse);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
-			glUniform4fv(loc, 1, myMeshes[objId].mat.specular);
-			loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
-			glUniform1f(loc, myMeshes[objId].mat.shininess);
-			pushMatrix(MODEL);
-			translate(MODEL, i * 2.0f, 0.0f, j * 2.0f);
+	// send the material for the terrain
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+	glUniform4fv(loc, 1, myMeshes[0].mat.ambient);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+	glUniform4fv(loc, 1, myMeshes[0].mat.diffuse);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+	glUniform4fv(loc, 1, myMeshes[0].mat.specular);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+	glUniform1f(loc, myMeshes[0].mat.shininess);
+	pushMatrix(MODEL);
+	translate(MODEL, 0.0f, 0.0f, 0.0f);
 
-			if ((i == 0) && (j == 0))
-				rotate(MODEL, -90, 1, 0, 0);
-
-			if ((i == 1) && (j == 1)) {
-				rotate(MODEL, -45, 0, 1, 0);
-				translate(MODEL, 2.0, 1, 1.4);
-			}
+	// if ((i == 0) && (j == 0))
+	rotate(MODEL, -90, 1, 0, 0);
+			
+	/*
+	if ((i == 1) && (j == 1)) {
+		rotate(MODEL, -45, 0, 1, 0);
+		translate(MODEL, 2.0, 1, 1.4);
+	}
+	*/
 				
 
-			// send matrices to OGL
-			computeDerivedMatrix(PROJ_VIEW_MODEL);
-			glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
-			glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
-			computeNormalMatrix3x3();
-			glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+	// send matrices to OGL
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
-			// Render mesh
-			glBindVertexArray(myMeshes[objId].vao);
+	// Render mesh
+	glBindVertexArray(myMeshes[0].vao);
 
-			glDrawElements(myMeshes[objId].type, myMeshes[objId].numIndexes, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
+	glDrawElements(myMeshes[0].type, myMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
 
-			popMatrix(MODEL);
-			objId++;
-		}
-	}
+	popMatrix(MODEL);
+			// objId++;
+		// }
+	// }
 
 
 	// Render and transform boat parts into one combined mesh
@@ -416,6 +503,8 @@ void renderScene(void) {
 	translate(MODEL, 5.0, 0.0, 0.0);
 	rotate(MODEL, 30, 0.0, 1.0, 0.0);
 	*/
+	renderHouse(loc);
+	renderTree(loc);
 	renderBoat(loc);
 	renderRows(loc);
 
@@ -682,12 +771,12 @@ MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdi
 	// create geometry and VAO of the cylinder
 	amesh = createCylinder(height, radius, sides);
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
-	myMeshes.push_back(amesh);
+	treeMeshes.push_back(amesh);
 
 	// create geometry and VAO of the sphere
 	amesh = createSphere(Sradius, Sdivisions);
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
-	myMeshes.push_back(amesh);
+	treeMeshes.push_back(amesh);
 
 	return amesh; // Return the last created mesh if needed
 }
@@ -703,13 +792,12 @@ MyMesh createHouses(float height, float radius, int sides, float Sradius, int Sd
 	// Create geometry and VAO of the cube
 	amesh = createCube();
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
-	myMeshes.push_back(amesh);
+	houseMeshes.push_back(amesh);
 
 	// create geometry and VAO of the sphere
-	 //createSphere(Sradius, Sdivisions);
 	amesh = createPyramid(1.0f, 1.0f, 4);
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
-	myMeshes.push_back(amesh);
+	houseMeshes.push_back(amesh);
 
 	return amesh; // Return the last created mesh if needed
 }
@@ -852,20 +940,6 @@ void init()
 	amesh.mat.texCount = texcount;
 	myMeshes.push_back(amesh);
 
-	
-	// create geometry and VAO of the sphere
-	/*
-	amesh = createSphere(1.0f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-	*/
-
-
 	// Extracting individual float values from the arrays
 	float amb_value = amb[0]; // Use the first value of amb array as the single float value
 	float diff_value = diff[0]; // Similarly, use the first value of diff array
@@ -877,21 +951,10 @@ void init()
 
 	// Calling createHouses with the extracted values
 	amesh = createHouses(3.5f, 50.0f, 50, 0.9, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
+	// printf("Há %d house meshes\n", houseMeshes.size());
 
 	// Calling createBoat with the extracted values
 	amesh = createBoat(1.0f, 2.5f, 0.8f, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
-	
-
-	// create geometry and VAO of the cone
-	/*amesh = createCone(1.5f, 0.5f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh); */
-
 
 	// Create geometry and VAO of the cube
 	amesh = createCube();  
@@ -902,21 +965,6 @@ void init()
 	amesh.mat.shininess = shininess;
 	amesh.mat.texCount = texcount;
 	myMeshes.push_back(amesh);
-
-
-	// Create cyliders for trees
-	/*
-	amesh = createCylinder(3.5f, 0.1f, 20);
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
-	*/
-
-	
 
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);

@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <cstdlib>
 
 // include GLEW to access OpenGL 3.3 functions
 #include <GL/glew.h>
@@ -38,6 +39,9 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define NUM_CREATURES 8
+#define MAX_RADIUS 25.0
+
 using namespace std;
 
 #define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
@@ -55,6 +59,7 @@ const string font_name = "fonts/arial.ttf";
 
 //Vectors with meshes
 vector<struct MyMesh> myMeshes;
+vector<struct MyMesh> movingMeshes;
 vector<struct MyMesh> houseMeshes;
 vector<struct MyMesh> treeMeshes;
 vector<struct MyMesh> boatMeshes;
@@ -116,6 +121,88 @@ Boat boat;
 float deltaT = 0.05;
 float decaySpeed = 0.99;  
 
+// Water creatures
+class WaterCreature {
+public:
+	float speed;
+	float direction[3];
+	float pos[3];
+	float angle;
+	float oscillationTime; // Tempo acumulado para controlar a oscilação
+};
+
+vector<struct WaterCreature> waterCreatures;
+
+// Função para gerar um valor aleatório entre min e max
+float randomFloat(float min, float max) {
+	return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+}
+
+// Função para inicializar uma criatura com posição e direção aleatórias
+void initCreature(WaterCreature& creature, float maxRadius) {
+	// Define posição aleatória no plano (x, z) e y = 0
+	creature.pos[0] = randomFloat(-maxRadius, maxRadius);  // posição x
+	creature.pos[1] = 0.0f;                                // posição y (nível da água)
+	creature.pos[2] = randomFloat(-maxRadius, maxRadius);  // posição z
+
+	// Define uma direção aleatória
+	creature.direction[0] = randomFloat(-1.0f, 1.0f); // direção x
+	creature.direction[1] = 0.0f;                     // direção y (sempre 0)
+	creature.direction[2] = randomFloat(-1.0f, 1.0f); // direção z
+
+	// Normaliza a direção para garantir que tenha magnitude 1
+	float magnitude = sqrt(creature.direction[0] * creature.direction[0] +
+		creature.direction[2] * creature.direction[2]);
+	creature.direction[0] /= magnitude;
+	creature.direction[2] /= magnitude;
+
+	// Define uma velocidade e ângulo aleatórios
+	creature.speed = randomFloat(0.5f, 1.0f);       
+	creature.angle = randomFloat(0.0f, 360.0f);			// ângulo de rotação
+	creature.oscillationTime = 0.0f;					// tempo de oscilação
+}
+
+// Inicializa N criaturas com posições aleatórias
+void initializeCreatures(int numCreatures, float maxRadius) {
+	waterCreatures.clear();
+	for (int i = 0; i < numCreatures; i++) {
+		WaterCreature creature;
+		initCreature(creature, maxRadius);
+		waterCreatures.push_back(creature);
+	}
+}
+
+void updateCreatures(float deltaT, float maxRadius) {
+	for (int i = 0; i < waterCreatures.size(); i++) {
+		WaterCreature& creature = waterCreatures[i];
+
+		// Atualiza a posição com base na direção e velocidade
+		creature.pos[0] += creature.direction[0] * creature.speed * deltaT;
+		creature.pos[2] += creature.direction[2] * creature.speed * deltaT;
+
+		// Atualiza o tempo de oscilação
+		creature.oscillationTime += deltaT;
+
+		// Define a oscilação angular (30 graus para ambos os lados)
+		float oscillationAmplitude = 30.0f;  // Amplitude máxima de oscilação (30º)
+		float oscillationFrequency = 2.0f;   // Velocidade da oscilação (ajustável)
+
+		// Ângulo de oscilação baseado no seno do tempo
+		float oscillationAngle = oscillationAmplitude * sin(oscillationFrequency * creature.oscillationTime);
+
+		// Aplica o ângulo oscilante à rotação da criatura (somente para a visualização)
+		creature.angle = oscillationAngle;
+
+		// Verifica se ultrapassou o raio limite
+		float distanceFromCenter = sqrt(creature.pos[0] * creature.pos[0] +
+			creature.pos[2] * creature.pos[2]);
+		
+		// Se ultrapassou o raio limite, reinicializa a criatura
+		if (distanceFromCenter > maxRadius) {
+			initCreature(creature, maxRadius);
+		}
+	}
+}
 
 
 void timer(int value)
@@ -128,7 +215,6 @@ void timer(int value)
     FrameCount = 0;
     glutTimerFunc(1000, timer, 0);
 }
-
 
 void animation(int value) {
 	// Atualiza a direção do barco
@@ -155,11 +241,12 @@ void animation(int value) {
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
 
+	// Atualiza as criaturas
+	updateCreatures(deltaT, MAX_RADIUS);
+
 	// Volta a chamar animation
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
-
-
 
 void refresh(int value)
 {
@@ -197,6 +284,60 @@ void changeSize(int w, int h) {
 
 /*
 */
+void renderCreatures(GLint loc) {
+	int meshId = 0;
+	pushMatrix(MODEL);
+
+	do {
+		// printf("Dentro do while, meshId = %d\n", meshId);
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, movingMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, movingMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, movingMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, movingMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transladar criatura para a sua posição atual
+		translate(MODEL, waterCreatures[meshId].pos[0], waterCreatures[meshId].pos[1], waterCreatures[meshId].pos[2]);
+		// Rodar criatura em torno do eixo Y (oscilações)
+		rotate(MODEL, waterCreatures[meshId].angle, 0.0f, 1.0f, 0.0f);
+
+		// Dar uma diferente inclinação a cada creature (cone)
+		/*
+		*/
+		if (meshId % 2 == 0) {
+			// translate(MODEL, 2.0, 0.0, 4.0);
+			rotate(MODEL, 60, 0.0, 0.0, 1.0);
+		}
+		else {
+			// translate(MODEL, 4.0, 0.0, 8.0);
+			rotate(MODEL, 90, 0.0, 0.0, 1.0);
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(movingMeshes[meshId].vao);
+
+		glDrawElements(movingMeshes[meshId].type, movingMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < movingMeshes.size());
+
+	popMatrix(MODEL);
+}
+
 void renderTree(GLint loc) {
 	int meshId = 0;
 	pushMatrix(MODEL);
@@ -387,7 +528,7 @@ void renderRows(GLint loc) {
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 1) {
-			translate(MODEL, -2.1f, 0.95f, 0.0f);
+			translate(MODEL, -2.1f, 0.85f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 2) { // right row
@@ -395,7 +536,7 @@ void renderRows(GLint loc) {
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 		else if (meshId == 3) {
-			translate(MODEL, 2.1f, 0.95f, 0.0f);
+			translate(MODEL, 2.1f, 0.85f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 
@@ -523,6 +664,7 @@ void renderScene(void) {
 	renderTree(loc);
 	renderBoat(loc);
 	renderRows(loc);
+	renderCreatures(loc);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -848,7 +990,6 @@ MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, fl
 	float spec1[4] = { spec, spec, spec, 1.0f };
 	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
 
-
 	// Criar e configurar as partes do barco (base, paredes, proa)
 	// MyMesh base = createQuad(baseWidth, baseLength);
 	amesh = createQuad(baseWidth, baseLength); // base
@@ -880,6 +1021,33 @@ MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, fl
 	createRows(amesh, baseLength, amb, diff, spec, emissive, shininess, texcount);
 	
 	return amesh;
+}
+
+MyMesh createWaterCreatures() {
+	MyMesh creatureMesh;
+	// int numberOfCreatures = 2;
+
+	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
+	float diff[] = { 1.0f, 0.6f, 1.5f, 1.0f };
+	float spec[] = { 0.8f, 1.0f, 0.8f, 1.0f };
+	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float shininess = 100.0f;
+	int texcount = 0;
+
+	for (int i = 0; i < NUM_CREATURES; i++) {
+		creatureMesh = createCone(2.0, 0.5, 20);
+		memcpy(creatureMesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(creatureMesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(creatureMesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(creatureMesh.mat.emissive, emissive, 4 * sizeof(float));
+		creatureMesh.mat.shininess = shininess;
+		creatureMesh.mat.texCount = texcount;
+		movingMeshes.push_back(creatureMesh);
+	}
+
+	initializeCreatures(NUM_CREATURES, MAX_RADIUS);
+
+	return creatureMesh;
 }
 
 // ------------------------------------------------------------
@@ -921,9 +1089,6 @@ void init()
 	cams[3].camPos[2] = 1;
 	//cams[3].type = 0;
 
-
-	
-
 	// set the camera position based on its spherical coordinates
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
@@ -936,8 +1101,6 @@ void init()
 	float emissive[] = {0.0f, 0.0f, 0.0f, 1.0f};
 	float shininess= 100.0f;
 	int texcount = 0;
-
-	
 
 	//Flat terrain
 	amesh = createQuad(50, 50);
@@ -965,15 +1128,8 @@ void init()
 	// Calling createBoat with the extracted values
 	amesh = createBoat(1.0f, 2.5f, 0.8f, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
 
-	// Create geometry and VAO of the cube
-	amesh = createCube();  
-	memcpy(amesh.mat.ambient, amb, 4 * sizeof(float));
-	memcpy(amesh.mat.diffuse, diff, 4 * sizeof(float));
-	memcpy(amesh.mat.specular, spec, 4 * sizeof(float));
-	memcpy(amesh.mat.emissive, emissive, 4 * sizeof(float));
-	amesh.mat.shininess = shininess;
-	amesh.mat.texCount = texcount;
-	myMeshes.push_back(amesh);
+	// Create creatures that swim
+	amesh = createWaterCreatures();
 
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);
@@ -992,7 +1148,7 @@ void init()
 
 int main(int argc, char **argv) {
 
-//  GLUT initialization
+	//  GLUT initialization
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH|GLUT_DOUBLE|GLUT_RGBA|GLUT_MULTISAMPLE);
 
@@ -1005,7 +1161,7 @@ int main(int argc, char **argv) {
 	WindowHandle = glutCreateWindow(CAPTION);
 
 
-//  Callback Registration
+	//  Callback Registration
 	glutDisplayFunc(renderScene);
 	glutReshapeFunc(changeSize);
 
@@ -1013,17 +1169,17 @@ int main(int argc, char **argv) {
 	//glutIdleFunc(renderScene);  // Use it for maximum performance
 	glutTimerFunc(0, refresh, 0);    //use it to to get 60 FPS whatever
 
-//	Mouse and Keyboard Callbacks
+	//	Mouse and Keyboard Callbacks
 	glutKeyboardFunc(processKeys);
 	glutMouseFunc(processMouseButtons);
 	glutMotionFunc(processMouseMotion);
 	glutMouseWheelFunc ( mouseWheel ) ;
 	
 
-//	return from main loop
+	//	return from main loop
 	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
 
-//	Init GLEW
+	//	Init GLEW
 	glewExperimental = GL_TRUE;
 	glewInit();
 

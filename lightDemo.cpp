@@ -128,8 +128,13 @@ public:
 	float direction[3];
 	float pos[3];
 	float angle;
-	float oscillationTime; // Tempo acumulado para controlar a oscilação
+	float oscillationTime;	// Tempo acumulado para controlar a oscilação
+	float timeElapsed;		// Tempo decorrido desde o último aumento de velocidade
+
+	WaterCreature() : timeElapsed(0.0f) {};
 };
+
+float deltaTimeElapsed = 1.0f / 60.0f;	// for 60 FPS
 
 vector<struct WaterCreature> waterCreatures;
 
@@ -182,6 +187,13 @@ void updateCreatures(float deltaT, float maxRadius) {
 
 		// Atualiza o tempo de oscilação
 		creature.oscillationTime += deltaT;
+		creature.timeElapsed += deltaTimeElapsed;
+
+		// Aumentar a velocidade a cada 30 segundos
+		if (creature.timeElapsed >= 30.0f) {
+			creature.speed += 1.0;
+			creature.timeElapsed = 0.0f; // Reseta o contador de tempo
+		}
 
 		// Define a oscilação angular (30 graus para ambos os lados)
 		float oscillationAmplitude = 30.0f;  // Amplitude máxima de oscilação (30º)

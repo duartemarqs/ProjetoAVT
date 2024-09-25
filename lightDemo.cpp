@@ -131,19 +131,34 @@ void timer(int value)
 
 
 void animation(int value) {
-	
+	// Atualiza a direção do barco
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
 	boat.direction[1] = 0;
 	boat.direction[2] = cos(boat.angle * M_PI / 180);
 
+	// Atualiza a posição do barco
 	boat.pos[0] += boat.direction[0] * boat.speed * deltaT;
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
 
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 
+	float dist = -10.0f;
+	float height = 7.5f;
+
+	// Atualiza a posição da câmara atrás do barco
+	cams[2].camPos[0] = boat.pos[0] + boat.direction[0] * dist;
+	cams[2].camPos[1] = boat.pos[1] + height;
+	cams[2].camPos[2] = boat.pos[2] + boat.direction[2] * dist;
+
+	cams[2].camTarget[0] = boat.pos[0];
+	cams[2].camTarget[1] = boat.pos[1];
+	cams[2].camTarget[2] = boat.pos[2];
+
+	// Volta a chamar animation
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
+
 
 
 void refresh(int value)
@@ -282,9 +297,9 @@ void renderBoat(GLint loc) {
 
 	pushMatrix(MODEL);
 	// 1. Transladar o barco para a sua posição atual
-	translate(MODEL, -boat.pos[0], boat.pos[1], -boat.pos[2]);
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rotacionar o barco em torno do eixo Y (depois da translação)
+	// 2. Rodar o barco em torno do eixo Y (depois da translação)
 	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o próprio eixo
 
 	do {
@@ -319,9 +334,9 @@ void renderBoat(GLint loc) {
 			translate(MODEL, 0.0f, 0.4f, -1.25f);
 		}
 		else if (meshId == 5) { // prow
-			translate(MODEL, 0.0f, 0.4f, -1.25f);
-			rotate(MODEL, 45, 0, 0, 1);
-			rotate(MODEL, -90, 1, 0, 0);
+			translate(MODEL, 0.0f, 0.4f, 1.25f);
+			rotate(MODEL, 45, 0, 0, -1);
+			rotate(MODEL, 90, 1, 0, 0);
 		}
 
 		// send matrices to OGL
@@ -349,10 +364,10 @@ void renderRows(GLint loc) {
 
 	pushMatrix(MODEL);
 	// 1. Transladar o barco para a sua posição atual
-	translate(MODEL, -boat.pos[0], boat.pos[1], -boat.pos[2]);
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rotacionar o barco em torno do eixo Y (depois da translação)
-	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o próprio eixo
+	// 2. Rodar sobre o próprio eixo
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  
 
 	do {
 		// send the material
@@ -440,8 +455,9 @@ void renderScene(void) {
 		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
 	}
 
-	// use our shader
+	//glDisable(GL_CULL_FACE);
 
+	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
 	//send the light position in eye coordinates
@@ -849,11 +865,11 @@ MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, fl
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	boatMeshes.push_back(amesh);
 
-	amesh = createQuad(baseWidth, height); // parede traseira
+	amesh = createQuad(baseWidth, height); // parede frontal
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	boatMeshes.push_back(amesh);
 
-	amesh = createQuad(baseWidth, height);	// parede frontal
+	amesh = createQuad(baseWidth, height);	// parede traseira
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	boatMeshes.push_back(amesh);
 
@@ -897,23 +913,16 @@ void init()
 	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
 
+	/* Cam[2] é implementada no Animation() */
+
 	// original perspective
 	cams[3].camPos[0] = 1;
 	cams[3].camPos[1] = 1;
 	cams[3].camPos[2] = 1;
 	//cams[3].type = 0;
 
-	/*
-	float dist = 10.0f;  
-	float height = 5.0f; 
-	cams[2].camPos[0] = boat.pos[0] - boat.direction[0] * dist;
-	cams[2].camPos[1] = boat.pos[1] + height; 
-	cams[2].camPos[2] = boat.pos[2] - boat.direction[2] * dist;
-	// camTarget é o barco
-	cams[2].camTarget[0] = boat.pos[0];
-	cams[2].camTarget[1] = boat.pos[1];
-	cams[2].camTarget[2] = boat.pos[2];
-	*/
+
+	
 
 	// set the camera position based on its spherical coordinates
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);

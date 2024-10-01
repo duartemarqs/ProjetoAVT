@@ -32,6 +32,7 @@
 #include "AVTmathLib.h"
 #include "VertexAttrDef.h"
 #include "geometry.h"
+#include "Texture_Loader.h"
 
 #include "avtFreeType.h"
 
@@ -78,7 +79,11 @@ GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
 GLint lPos_uniformId;
-GLint tex_loc, tex_loc1, tex_loc2;
+
+// Textures
+GLint tex_loc, tex_loc1;
+GLint texMode_uniformId;
+GLuint TextureArray[3];
 	
 // Camera Position
 float camX, camY, camZ;
@@ -464,25 +469,25 @@ void renderBoat(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) {	// base
-			translate(MODEL, 0.0f, 0.0f, 0.0f);
+			translate(MODEL, 0.0f, 0.1f, 0.0f);
 			rotate(MODEL, 90, 1, 0, 0);
 		}
 		else if (meshId == 1) {	 // left wall
-			translate(MODEL, -0.5f, 0.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
+			translate(MODEL, -0.5f, 0.5f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 2) {	// right wall
-			translate(MODEL, 0.5f, 0.4f, 0.0f);
+			translate(MODEL, 0.5f, 0.5f, 0.0f);
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 3) { // back wall
-			translate(MODEL, 0.0f, 0.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
+			translate(MODEL, 0.0f, 0.5f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
 		}
 		else if (meshId == 4) { // front wall
-			translate(MODEL, 0.0f, 0.4f, -1.25f);
+			translate(MODEL, 0.0f, 0.5f, -1.25f);
 		}
 		else if (meshId == 5) { // prow
-			translate(MODEL, 0.0f, 0.4f, 1.25f);
+			translate(MODEL, 0.0f, 0.5f, 1.25f);
 			rotate(MODEL, 45, 0, 0, -1);
 			rotate(MODEL, 90, 1, 0, 0);
 		}
@@ -531,19 +536,19 @@ void renderRows(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) { // left row
-			translate(MODEL, -1.0f, 0.9f, 0.0f);
+			translate(MODEL, -1.0f, 1.0f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 1) {
-			translate(MODEL, -2.1f, 0.85f, 0.0f);
+			translate(MODEL, -2.1f, 0.95f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 2) { // right row
-			translate(MODEL, 1.0f, 0.9f, 0.0f);
+			translate(MODEL, 1.0f, 1.0f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 		else if (meshId == 3) {
-			translate(MODEL, 2.1f, 0.85f, 0.0f);
+			translate(MODEL, 2.1f, 0.95f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 
@@ -577,6 +582,7 @@ void renderScene(void) {
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
+
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
 	if (activeCam == 3) lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
@@ -608,17 +614,25 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	//send the light position in eye coordinates
-	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
-
 	float res[4];
 	multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
 	glUniform4fv(lPos_uniformId, 1, res);
 
-	// int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
+	//Associar os Texture Units aos Objects Texture
+	//stone.tga loaded in TU0; checker.tga loaded in TU1;  lightwood.tga loaded in TU2
+	/*
+	*/
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
-	// for (int i = 0; i < 2; ++i) {
-		// for (int j = 0; j < 3; ++j) {
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
+
+	//Indicar aos dois samplers do GLSL quais os Texture Units a serem usados
+	/*
+	*/
+	glUniform1i(tex_loc, 0);
+	glUniform1i(tex_loc1, 1);
 
 	// send the material for the terrain
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -632,16 +646,7 @@ void renderScene(void) {
 	pushMatrix(MODEL);
 	translate(MODEL, 0.0f, 0.0f, 0.0f);
 
-	// if ((i == 0) && (j == 0))
 	rotate(MODEL, -90, 1, 0, 0);
-			
-	/*
-	if ((i == 1) && (j == 1)) {
-		rotate(MODEL, -45, 0, 1, 0);
-		translate(MODEL, 2.0, 1, 1.4);
-	}
-	*/
-				
 
 	// send matrices to OGL
 	computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -650,6 +655,9 @@ void renderScene(void) {
 	computeNormalMatrix3x3();
 	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
+	// Modulate Phong color with texel color for the terrain
+	glUniform1i(texMode_uniformId, 1); // multitexturing
+
 	// Render mesh
 	glBindVertexArray(myMeshes[0].vao);
 
@@ -657,17 +665,17 @@ void renderScene(void) {
 	glBindVertexArray(0);
 
 	popMatrix(MODEL);
-			// objId++;
-		// }
-	// }
 
+	// Reset texture
+	glUniform1i(texMode_uniformId, 0);
 
-	// Render and transform boat parts into one combined mesh
-	/*
-	translate(MODEL, 5.0, 0.0, 0.0);
-	rotate(MODEL, 30, 0.0, 1.0, 0.0);
-	*/
+	// Render and transform objects
+	// scale(MODEL, 0.5, 1.0, 0.5);
+	translate(MODEL, -1.0, 0.0, 12.0);
 	renderHouse(loc);
+	translate(MODEL, 1.0, 0.0, -12.0);
+	// scale(MODEL, -0.5, -1.0, -0.5);
+
 	renderTree(loc);
 	renderBoat(loc);
 	renderRows(loc);
@@ -871,7 +879,7 @@ GLuint setupShaders() {
 	glBindFragDataLocation(shader.getProgramIndex(), 0,"colorOut");
 	glBindAttribLocation(shader.getProgramIndex(), VERTEX_COORD_ATTRIB, "position");
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
-	//glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
+	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
 
 	glLinkProgram(shader.getProgramIndex());
 
@@ -883,13 +891,16 @@ GLuint setupShaders() {
 		exit(1);
 	}
 
+	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode"); // different modes of texturing
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
 	lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
+	/*
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+	*/
 	
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
@@ -1101,7 +1112,13 @@ void init()
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camY = r *   						     sin(beta * 3.14f / 180.0f);
 
-	
+	// Texture Object definition
+	/*
+	*/
+	glGenTextures(2, TextureArray);
+	Texture2D_Loader(TextureArray, "river.jpg", 0);
+	Texture2D_Loader(TextureArray, "wrinkled-paper.jpg", 1);
+
 	float amb[]= {0.2f, 0.15f, 0.1f, 1.0f};
 	float diff[] = {0.8f, 0.6f, 0.4f, 1.0f};
 	float spec[] = {0.8f, 0.8f, 0.8f, 1.0f};

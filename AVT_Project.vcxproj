@@ -182,6 +182,10 @@
     <None Include="shaders\text.frag" />
     <None Include="shaders\text.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="river.jpg" />
+    <Image Include="wrinkled-paper.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

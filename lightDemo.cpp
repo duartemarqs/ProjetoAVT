@@ -229,12 +229,10 @@ void timer(int value)
 }
 
 void animation(int value) {
-	// Atualiza a direção do barco
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
 	boat.direction[1] = 0;
 	boat.direction[2] = cos(boat.angle * M_PI / 180);
 
-	// Atualiza a posição do barco
 	boat.pos[0] += boat.direction[0] * boat.speed * deltaT;
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
@@ -244,19 +242,16 @@ void animation(int value) {
 	float dist = -10.0f;
 	float height = 7.5f;
 
-	// Atualiza a posição da câmara atrás do barco
-	cams[2].camPos[0] = boat.pos[0] + boat.direction[0] * dist;
-	cams[2].camPos[1] = boat.pos[1] + height;
-	cams[2].camPos[2] = boat.pos[2] + boat.direction[2] * dist;
+	cams[2].camPos[0] = boat.pos[0] + camX;  // Usa camX, camY, camZ para controlar a rotação pelo rato
+	cams[2].camPos[1] = boat.pos[1] + camY + height;
+	cams[2].camPos[2] = boat.pos[2] + camZ;
 
 	cams[2].camTarget[0] = boat.pos[0];
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
 
-	// Atualiza as criaturas
 	updateCreatures(deltaT, MAX_RADIUS);
 
-	// Volta a chamar animation
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
 
@@ -608,7 +603,7 @@ void renderScene(void) {
 		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
 	}
 
-	//glDisable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());

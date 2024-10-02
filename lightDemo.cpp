@@ -8,7 +8,7 @@
 // The code comes with no warranties, use it at your own risk.
 // You may use it, or parts of it, wherever you want.
 // 
-// Author: João Madeiras Pereira
+// Author: Joï¿½o Madeiras Pereira
 //
 
 #include <math.h>
@@ -32,6 +32,7 @@
 #include "AVTmathLib.h"
 #include "VertexAttrDef.h"
 #include "geometry.h"
+#include "Texture_Loader.h"
 
 #include "avtFreeType.h"
 
@@ -87,6 +88,11 @@ GLint pointlights_loc4;
 GLint pointlights_loc5;
 GLint pointlights_loc6;
 GLint tex_loc, tex_loc1, tex_loc2;
+
+// Textures
+GLint tex_loc, tex_loc1;
+GLint texMode_uniformId;
+GLuint TextureArray[3];
 	
 // Camera Position
 float camX, camY, camZ;
@@ -102,6 +108,9 @@ float r = 10.0f;
 long myTime,timebase = 0,frame = 0;
 char s[32];
 float lightPos[4] = {4.0f, 6.0f, 2.0f, 1.0f};
+
+//Fog
+bool fogEnabled = false; 
 
 // Camera -------------
 class Camera {
@@ -136,8 +145,8 @@ public:
 	float direction[3];
 	float pos[3];
 	float angle;
-	float oscillationTime;	// Tempo acumulado para controlar a oscilação
-	float timeElapsed;		// Tempo decorrido desde o último aumento de velocidade
+	float oscillationTime;	// Tempo acumulado para controlar a oscilaï¿½ï¿½o
+	float timeElapsed;		// Tempo decorrido desde o ï¿½ltimo aumento de velocidade
 
 	WaterCreature() : timeElapsed(0.0f) {};
 };
@@ -215,36 +224,36 @@ std::vector<PointLight> pointLights;
 //endof setup of pointlights
 
 
-// Função para gerar um valor aleatório entre min e max
+// Funï¿½ï¿½o para gerar um valor aleatï¿½rio entre min e max
 float randomFloat(float min, float max) {
 	return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
 }
 
-// Função para inicializar uma criatura com posição e direção aleatórias
+// Funï¿½ï¿½o para inicializar uma criatura com posiï¿½ï¿½o e direï¿½ï¿½o aleatï¿½rias
 void initCreature(WaterCreature& creature, float maxRadius) {
-	// Define posição aleatória no plano (x, z) e y = 0
-	creature.pos[0] = randomFloat(-maxRadius, maxRadius);  // posição x
-	creature.pos[1] = 0.0f;                                // posição y (nível da água)
-	creature.pos[2] = randomFloat(-maxRadius, maxRadius);  // posição z
+	// Define posiï¿½ï¿½o aleatï¿½ria no plano (x, z) e y = 0
+	creature.pos[0] = randomFloat(-maxRadius, maxRadius);  // posiï¿½ï¿½o x
+	creature.pos[1] = 0.0f;                                // posiï¿½ï¿½o y (nï¿½vel da ï¿½gua)
+	creature.pos[2] = randomFloat(-maxRadius, maxRadius);  // posiï¿½ï¿½o z
 
-	// Define uma direção aleatória
-	creature.direction[0] = randomFloat(-1.0f, 1.0f); // direção x
-	creature.direction[1] = 0.0f;                     // direção y (sempre 0)
-	creature.direction[2] = randomFloat(-1.0f, 1.0f); // direção z
+	// Define uma direï¿½ï¿½o aleatï¿½ria
+	creature.direction[0] = randomFloat(-1.0f, 1.0f); // direï¿½ï¿½o x
+	creature.direction[1] = 0.0f;                     // direï¿½ï¿½o y (sempre 0)
+	creature.direction[2] = randomFloat(-1.0f, 1.0f); // direï¿½ï¿½o z
 
-	// Normaliza a direção para garantir que tenha magnitude 1
+	// Normaliza a direï¿½ï¿½o para garantir que tenha magnitude 1
 	float magnitude = sqrt(creature.direction[0] * creature.direction[0] +
 		creature.direction[2] * creature.direction[2]);
 	creature.direction[0] /= magnitude;
 	creature.direction[2] /= magnitude;
 
-	// Define uma velocidade e ângulo aleatórios
+	// Define uma velocidade e ï¿½ngulo aleatï¿½rios
 	creature.speed = randomFloat(0.5f, 1.0f);       
-	creature.angle = randomFloat(0.0f, 360.0f);			// ângulo de rotação
-	creature.oscillationTime = 0.0f;					// tempo de oscilação
+	creature.angle = randomFloat(0.0f, 360.0f);			// ï¿½ngulo de rotaï¿½ï¿½o
+	creature.oscillationTime = 0.0f;					// tempo de oscilaï¿½ï¿½o
 }
 
-// Inicializa N criaturas com posições aleatórias
+// Inicializa N criaturas com posiï¿½ï¿½es aleatï¿½rias
 void initializeCreatures(int numCreatures, float maxRadius) {
 	waterCreatures.clear();
 	for (int i = 0; i < numCreatures; i++) {
@@ -258,11 +267,11 @@ void updateCreatures(float deltaT, float maxRadius) {
 	for (int i = 0; i < waterCreatures.size(); i++) {
 		WaterCreature& creature = waterCreatures[i];
 
-		// Atualiza a posição com base na direção e velocidade
+		// Atualiza a posiï¿½ï¿½o com base na direï¿½ï¿½o e velocidade
 		creature.pos[0] += creature.direction[0] * creature.speed * deltaT;
 		creature.pos[2] += creature.direction[2] * creature.speed * deltaT;
 
-		// Atualiza o tempo de oscilação
+		// Atualiza o tempo de oscilaï¿½ï¿½o
 		creature.oscillationTime += deltaT;
 		creature.timeElapsed += deltaTimeElapsed;
 
@@ -272,14 +281,14 @@ void updateCreatures(float deltaT, float maxRadius) {
 			creature.timeElapsed = 0.0f; // Reseta o contador de tempo
 		}
 
-		// Define a oscilação angular (30 graus para ambos os lados)
-		float oscillationAmplitude = 30.0f;  // Amplitude máxima de oscilação (30º)
-		float oscillationFrequency = 2.0f;   // Velocidade da oscilação (ajustável)
+		// Define a oscilaï¿½ï¿½o angular (30 graus para ambos os lados)
+		float oscillationAmplitude = 30.0f;  // Amplitude mï¿½xima de oscilaï¿½ï¿½o (30ï¿½)
+		float oscillationFrequency = 2.0f;   // Velocidade da oscilaï¿½ï¿½o (ajustï¿½vel)
 
-		// Ângulo de oscilação baseado no seno do tempo
+		// ï¿½ngulo de oscilaï¿½ï¿½o baseado no seno do tempo
 		float oscillationAngle = oscillationAmplitude * sin(oscillationFrequency * creature.oscillationTime);
 
-		// Aplica o ângulo oscilante à rotação da criatura (somente para a visualização)
+		// Aplica o ï¿½ngulo oscilante ï¿½ rotaï¿½ï¿½o da criatura (somente para a visualizaï¿½ï¿½o)
 		creature.angle = oscillationAngle;
 
 		// Verifica se ultrapassou o raio limite
@@ -306,12 +315,10 @@ void timer(int value)
 }
 
 void animation(int value) {
-	// Atualiza a direção do barco
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
 	boat.direction[1] = 0;
 	boat.direction[2] = cos(boat.angle * M_PI / 180);
 
-	// Atualiza a posição do barco
 	boat.pos[0] += boat.direction[0] * boat.speed * deltaT;
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
@@ -321,19 +328,16 @@ void animation(int value) {
 	float dist = -10.0f;
 	float height = 7.5f;
 
-	// Atualiza a posição da câmara atrás do barco
-	cams[2].camPos[0] = boat.pos[0] + boat.direction[0] * dist;
-	cams[2].camPos[1] = boat.pos[1] + height;
-	cams[2].camPos[2] = boat.pos[2] + boat.direction[2] * dist;
+	cams[2].camPos[0] = boat.pos[0] + camX;  // Usa camX, camY, camZ para controlar a rotaï¿½ï¿½o pelo rato
+	cams[2].camPos[1] = boat.pos[1] + camY + height;
+	cams[2].camPos[2] = boat.pos[2] + camZ;
 
 	cams[2].camTarget[0] = boat.pos[0];
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
 
-	// Atualiza as criaturas
 	updateCreatures(deltaT, MAX_RADIUS);
 
-	// Volta a chamar animation
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
 
@@ -342,7 +346,7 @@ void refresh(int value)
 	// Atualiza a cena
 	glutPostRedisplay();
 
-	// Nova chamada ao temporizador após 16 milissegundos
+	// Nova chamada ao temporizador apï¿½s 16 milissegundos
 	glutTimerFunc(1000 / 60, refresh, 0);
 }
 
@@ -390,12 +394,12 @@ void renderCreatures(GLint loc) {
 		glUniform1f(loc, movingMeshes[meshId].mat.shininess);
 		pushMatrix(MODEL);
 
-		// Transladar criatura para a sua posição atual
+		// Transladar criatura para a sua posiï¿½ï¿½o atual
 		translate(MODEL, waterCreatures[meshId].pos[0], waterCreatures[meshId].pos[1], waterCreatures[meshId].pos[2]);
-		// Rodar criatura em torno do eixo Y (oscilações)
+		// Rodar criatura em torno do eixo Y (oscilaï¿½ï¿½es)
 		rotate(MODEL, waterCreatures[meshId].angle, 0.0f, 1.0f, 0.0f);
 
-		// Dar uma diferente inclinação a cada creature (cone)
+		// Dar uma diferente inclinaï¿½ï¿½o a cada creature (cone)
 		/*
 		*/
 		if (meshId % 2 == 0) {
@@ -526,11 +530,11 @@ void renderBoat(GLint loc) {
 	int meshId = 0;
 
 	pushMatrix(MODEL);
-	// 1. Transladar o barco para a sua posição atual
+	// 1. Transladar o barco para a sua posiï¿½ï¿½o atual
 	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rodar o barco em torno do eixo Y (depois da translação)
-	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o próprio eixo
+	// 2. Rodar o barco em torno do eixo Y (depois da translaï¿½ï¿½o)
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o prï¿½prio eixo
 
 	do {
 		// send the material
@@ -546,25 +550,25 @@ void renderBoat(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) {	// base
-			translate(MODEL, 0.0f, 0.0f, 0.0f);
+			translate(MODEL, 0.0f, 0.1f, 0.0f);
 			rotate(MODEL, 90, 1, 0, 0);
 		}
 		else if (meshId == 1) {	 // left wall
-			translate(MODEL, -0.5f, 0.4f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
+			translate(MODEL, -0.5f, 0.5f, 0.0f);	// baseWidth = 1.0 => 0.5baseWidth = 0.5
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 2) {	// right wall
-			translate(MODEL, 0.5f, 0.4f, 0.0f);
+			translate(MODEL, 0.5f, 0.5f, 0.0f);
 			rotate(MODEL, 90, 0, 1, 0);
 		}
 		else if (meshId == 3) { // back wall
-			translate(MODEL, 0.0f, 0.4f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
+			translate(MODEL, 0.0f, 0.5f, 1.25f);		// baseLength = 2.2 => 0.5baseLength = 1.25
 		}
 		else if (meshId == 4) { // front wall
-			translate(MODEL, 0.0f, 0.4f, -1.25f);
+			translate(MODEL, 0.0f, 0.5f, -1.25f);
 		}
 		else if (meshId == 5) { // prow
-			translate(MODEL, 0.0f, 0.4f, 1.25f);
+			translate(MODEL, 0.0f, 0.5f, 1.25f);
 			rotate(MODEL, 45, 0, 0, -1);
 			rotate(MODEL, 90, 1, 0, 0);
 		}
@@ -593,10 +597,10 @@ void renderRows(GLint loc) {
 	int meshId = 0;
 
 	pushMatrix(MODEL);
-	// 1. Transladar o barco para a sua posição atual
+	// 1. Transladar o barco para a sua posiï¿½ï¿½o atual
 	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rodar sobre o próprio eixo
+	// 2. Rodar sobre o prï¿½prio eixo
 	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  
 
 	do {
@@ -613,19 +617,19 @@ void renderRows(GLint loc) {
 
 		// Transformations
 		if (meshId == 0) { // left row
-			translate(MODEL, -1.0f, 0.9f, 0.0f);
+			translate(MODEL, -1.0f, 1.0f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 1) {
-			translate(MODEL, -2.1f, 0.85f, 0.0f);
+			translate(MODEL, -2.1f, 0.95f, 0.0f);
 			rotate(MODEL, 90, 0, 0, 1);
 		}
 		else if (meshId == 2) { // right row
-			translate(MODEL, 1.0f, 0.9f, 0.0f);
+			translate(MODEL, 1.0f, 1.0f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 		else if (meshId == 3) {
-			translate(MODEL, 2.1f, 0.85f, 0.0f);
+			translate(MODEL, 2.1f, 0.95f, 0.0f);
 			rotate(MODEL, -90, 0, 0, 1);
 		}
 
@@ -659,6 +663,7 @@ void renderScene(void) {
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
+
 	// set the camera using a function similar to gluLookAt
 	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
 	if (activeCam == 3) lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
@@ -685,13 +690,13 @@ void renderScene(void) {
 		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
 	}
 
-	//glDisable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	//send the light position in eye coordinates
-	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
+	//Enable/disable
+	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
 
 	float res[4];
 	//multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
@@ -712,10 +717,21 @@ void renderScene(void) {
 	multMatrixPoint(VIEW, pointLights[5].position, res);
 	glUniform4fv(pointLights[5].location, 1, res);
 
-	// int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
+	//Associar os Texture Units aos Objects Texture
+	//stone.tga loaded in TU0; checker.tga loaded in TU1;  lightwood.tga loaded in TU2
+	/*
+	*/
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
 
-	// for (int i = 0; i < 2; ++i) {
-		// for (int j = 0; j < 3; ++j) {
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
+
+	//Indicar aos dois samplers do GLSL quais os Texture Units a serem usados
+	/*
+	*/
+	glUniform1i(tex_loc, 0);
+	glUniform1i(tex_loc1, 1);
 
 	// send the material for the terrain
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
@@ -729,16 +745,7 @@ void renderScene(void) {
 	pushMatrix(MODEL);
 	translate(MODEL, 0.0f, 0.0f, 0.0f);
 
-	// if ((i == 0) && (j == 0))
 	rotate(MODEL, -90, 1, 0, 0);
-			
-	/*
-	if ((i == 1) && (j == 1)) {
-		rotate(MODEL, -45, 0, 1, 0);
-		translate(MODEL, 2.0, 1, 1.4);
-	}
-	*/
-				
 
 	// send matrices to OGL
 	computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -747,6 +754,9 @@ void renderScene(void) {
 	computeNormalMatrix3x3();
 	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
 
+	// Modulate Phong color with texel color for the terrain
+	glUniform1i(texMode_uniformId, 1); // multitexturing
+
 	// Render mesh
 	glBindVertexArray(myMeshes[0].vao);
 
@@ -754,17 +764,17 @@ void renderScene(void) {
 	glBindVertexArray(0);
 
 	popMatrix(MODEL);
-			// objId++;
-		// }
-	// }
 
+	// Reset texture
+	glUniform1i(texMode_uniformId, 0);
 
-	// Render and transform boat parts into one combined mesh
-	/*
-	translate(MODEL, 5.0, 0.0, 0.0);
-	rotate(MODEL, 30, 0.0, 1.0, 0.0);
-	*/
+	// Render and transform objects
+	// scale(MODEL, 0.5, 1.0, 0.5);
+	translate(MODEL, -1.0, 0.0, 12.0);
 	renderHouse(loc);
+	translate(MODEL, 1.0, 0.0, -12.0);
+	// scale(MODEL, -0.5, -1.0, -0.5);
+
 	renderTree(loc);
 	renderBoat(loc);
 	renderRows(loc);
@@ -829,6 +839,14 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
 		break;
 
+
+	case 'F': case 'f':
+		printf("fog ativado: %d\n", fogEnabled);
+		fogEnabled = !fogEnabled;  // Toggle fog on and off
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
+		break;
+		break;
+
 		
 	case 'a':  
 		boat.angle += 5.0f;  
@@ -844,7 +862,7 @@ void processKeys(unsigned char key, int xx, int yy)
 
 	case 's': 
 		boat.speed -= 0.1f; 
-		if (boat.speed < 0) boat.speed = 0;  // Não permitir velocidade negativa
+		if (boat.speed < 0) boat.speed = 0;  // Nï¿½o permitir velocidade negativa
 		break;
  
 		case 27:
@@ -968,7 +986,7 @@ GLuint setupShaders() {
 	glBindFragDataLocation(shader.getProgramIndex(), 0,"colorOut");
 	glBindAttribLocation(shader.getProgramIndex(), VERTEX_COORD_ATTRIB, "position");
 	glBindAttribLocation(shader.getProgramIndex(), NORMAL_ATTRIB, "normal");
-	//glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
+	glBindAttribLocation(shader.getProgramIndex(), TEXTURE_COORD_ATTRIB, "texCoord");
 
 	glLinkProgram(shader.getProgramIndex());
 
@@ -980,6 +998,7 @@ GLuint setupShaders() {
 		exit(1);
 	}
 
+	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode"); // different modes of texturing
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
@@ -992,7 +1011,9 @@ GLuint setupShaders() {
 	pointLights[5].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight5location");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
+	/*
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
+	*/
 	
 	printf("InfoLog for Per Fragment Phong Lightning Shader\n%s\n\n", shader.getAllInfoLogs().c_str());
 
@@ -1077,7 +1098,7 @@ void createRows(MyMesh amesh, float baseLength, float amb, float diff, float spe
 	amesh = createCylinder(baseLength * (5.0 / 7.0), baseLength / 25.0, 20);	// cabo
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	rowMeshes.push_back(amesh);
-	amesh = createQuad(0.5, 0.8);	// pá
+	amesh = createQuad(0.5, 0.8);	// pï¿½
 	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
 	rowMeshes.push_back(amesh);
 
@@ -1219,7 +1240,6 @@ void init()
 	/// Initialization of freetype library with font_name file
 	freeType_init(font_name);
 
-
 	// top 
 	cams[0].camPos[0] = 0;
 	cams[0].camPos[1] = 40;
@@ -1230,7 +1250,7 @@ void init()
 	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
 
-	/* Cam[2] é implementada no Animation() */
+	/* Cam[2] ï¿½ implementada no Animation() */
 
 	// original perspective
 	cams[3].camPos[0] = 1;
@@ -1243,7 +1263,13 @@ void init()
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camY = r *   						     sin(beta * 3.14f / 180.0f);
 
-	
+	// Texture Object definition
+	/*
+	*/
+	glGenTextures(2, TextureArray);
+	Texture2D_Loader(TextureArray, "river.jpg", 0);
+	Texture2D_Loader(TextureArray, "wrinkled-paper.jpg", 1);
+
 	float amb[]= {0.2f, 0.15f, 0.1f, 1.0f};
 	float diff[] = {0.8f, 0.6f, 0.4f, 1.0f};
 	float spec[] = {0.8f, 0.8f, 0.8f, 1.0f};
@@ -1272,7 +1298,7 @@ void init()
 
 	// Calling createHouses with the extracted values
 	amesh = createHouses(3.5f, 50.0f, 50, 0.9, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
-	// printf("Há %d house meshes\n", houseMeshes.size());
+	// printf("Hï¿½ %d house meshes\n", houseMeshes.size());
 
 	// Calling createBoat with the extracted values
 	amesh = createBoat(1.0f, 2.5f, 0.8f, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);
@@ -1362,7 +1388,7 @@ int main(int argc, char **argv) {
 
 	init();
 
-	// Iniciar a animação
+	// Iniciar a animaï¿½ï¿½o
 	glutTimerFunc(1 / deltaT, animation, 0);
 
 	//  GLUT main loop

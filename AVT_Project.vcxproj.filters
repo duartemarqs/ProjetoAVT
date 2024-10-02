@@ -75,4 +75,12 @@
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="river.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="wrinkled-paper.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

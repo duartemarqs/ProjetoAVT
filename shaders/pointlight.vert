@@ -8,6 +8,7 @@ uniform mat3 m_normal;
 
 in vec4 position;
 in vec4 normal;    //por causa do gerador de geometria
+in vec4 texCoord;
 
 uniform vec4 pointLight0location;
 uniform vec4 pointLight1location;
@@ -20,11 +21,18 @@ out Data {
 	vec3 normal;
 	vec3 eye;
 	vec3 lightDir[6];
+    vec2 tex_coord;
+    vec4 pos;  // Added this to pass the position to the fragment shader
 } DataOut;
 
 void main () {
+    vec4 pos = m_viewModel * position;
 
-	vec4 pos = m_viewModel * position;
+    DataOut.normal = normalize(m_normal * normal.xyz);
+    DataOut.lightDir = vec3(l_pos - pos);
+    DataOut.eye = vec3(-pos);
+    DataOut.tex_coord = texCoord.st;
+    DataOut.pos = pos;  // Pass the position to fragment shader
 
 	DataOut.normal = normalize(m_normal * normal.xyz);
 	DataOut.lightDir[0] = vec3(pointLight0location - pos);
@@ -34,6 +42,5 @@ void main () {
 	DataOut.lightDir[4] = vec3(pointLight4location - pos);
 	DataOut.lightDir[5] = vec3(pointLight5location - pos);
 	DataOut.eye = vec3(-pos);
-
-	gl_Position = m_pvm * position;	
+    gl_Position = m_pvm * position;  
 }

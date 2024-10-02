@@ -87,7 +87,7 @@ GLint pointlights_loc3;
 GLint pointlights_loc4;
 GLint pointlights_loc5;
 GLint pointlights_loc6;
-GLint tex_loc, tex_loc1, tex_loc2;
+//GLint tex_loc, tex_loc1, tex_loc2;
 
 // Textures
 GLint tex_loc, tex_loc1;
@@ -199,10 +199,10 @@ public:
 
 float positions[NUM_POINT_LIGHTS][4] = {
 		{ 3.0f, 3.0f, 3.0f, 1.0f },
-		{ 7.0f, 7.0f, 7.0f, 1.0f },
-		{ 2.0f, 10.0f, 2.0f, 1.0f },
+		{ 17.0f, -7.0f, 7.0f, 1.0f },
+		{ 12.0f, 10.0f, 2.0f, 1.0f },
 		{ 5.0f, 5.0f, 5.0f, 1.0f },
-		{ 17.0f, 8.0f, 7.0f, 1.0f },
+		{ 17.0f, 8.0f, -7.0f, 1.0f },
 		{ 1.0f, 2.0f, 1.0f, 1.0f }
 };
 

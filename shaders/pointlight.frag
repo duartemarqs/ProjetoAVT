@@ -37,6 +37,7 @@ void main() {
 	float intSpec = 0.0f;
     vec4 texel, texel1; 
 
+
 	vec3 n = normalize(DataIn.normal);
 //	vec3 l = normalize(DataIn.lightDir); old formula lcoation
 	vec3 e = normalize(DataIn.eye);
@@ -51,11 +52,11 @@ void main() {
 //		float intSpec = max(dot(h,n), 0.0);
 //		spec = mat.specular * pow(intSpec, mat.shininess);
 //	}
-
+    
 	// Iterate over the light sources
     for (int i = 0; i < 6; i++) {
         vec3 l = normalize(DataIn.lightDir[i]); // Get the light direction
-        float intensity = max(dot(n, l), 0.0); // Calculate the diffuse intensity
+        intensity += max(dot(n, l), 0.0); // Calculate the diffuse intensity
         
         if (intensity > 0.0) {
             // Blinn-Phong specular calculation

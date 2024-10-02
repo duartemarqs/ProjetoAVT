@@ -41,6 +41,7 @@
 #define NUM_POINT_LIGHTS 6
 #endif
 
+#define NUM_BUOYS 5
 #define NUM_CREATURES 8
 #define MAX_RADIUS 25.0
 
@@ -377,6 +378,54 @@ void changeSize(int w, int h) {
 
 /*
 */
+void renderBuoys(GLint loc) {
+	int meshId = 1; // myMeshes[0] has the terrain mesh
+	pushMatrix(MODEL);
+
+	do {
+		// printf("Dentro do while, meshId = %d\n", meshId);
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, myMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, myMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, myMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, myMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		if (meshId == 1)
+			translate(MODEL, 15.0, 0.2, 1.5);
+		if (meshId == 2)
+			translate(MODEL, 12.0, 0.2, 6.5);
+		if (meshId == 3)
+			translate(MODEL, 18.0, 0.2, 3.0);
+		if (meshId == 4)
+			translate(MODEL, 6.0, 0.2, 5.0);
+		if (meshId == 5)
+			translate(MODEL, 22.0, 0.2, -1.0);
+		
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(myMeshes[meshId].vao);
+
+		glDrawElements(myMeshes[meshId].type, myMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < myMeshes.size());
+
+	popMatrix(MODEL);
+}
+
 void renderCreatures(GLint loc) {
 	int meshId = 0;
 	pushMatrix(MODEL);
@@ -769,6 +818,8 @@ void renderScene(void) {
 	glUniform1i(texMode_uniformId, 0);
 
 	// Render and transform objects
+	renderBuoys(loc);
+
 	// scale(MODEL, 0.5, 1.0, 0.5);
 	translate(MODEL, -1.0, 0.0, 12.0);
 	renderHouse(loc);
@@ -1049,6 +1100,30 @@ void setMaterial(MyMesh& mesh, float amb, float diff, float spec, float emissive
 	mesh.mat.texCount = texcount;
 }
 
+MyMesh createBuoys() {
+	MyMesh buoyMesh;
+
+	float amb[] = { 0.7f, 0.15f, 0.1f, 1.0f };
+	float diff[] = { 1.5f, 0.6f, 1.0f, 1.0f };
+	float spec[] = { 1.0f, 1.0f, 0.8f, 1.0f };
+	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float shininess = 90.0f;
+	int texcount = 0;
+
+	for (int i = 0; i < NUM_BUOYS; i++) {
+		buoyMesh = createTorus(0.2, 0.5, 20, 20);
+		memcpy(buoyMesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(buoyMesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(buoyMesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(buoyMesh.mat.emissive, emissive, 4 * sizeof(float));
+		buoyMesh.mat.shininess = shininess;
+		buoyMesh.mat.texCount = texcount;
+		myMeshes.push_back(buoyMesh);
+	}
+
+	return buoyMesh;
+}
+
 MyMesh createTrees(float height, float radius, int sides, float Sradius, int Sdivisions, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
 
 	// Create arrays for material properties
@@ -1158,9 +1233,9 @@ MyMesh createWaterCreatures() {
 	MyMesh creatureMesh;
 	// int numberOfCreatures = 2;
 
-	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };
-	float diff[] = { 1.0f, 0.6f, 1.5f, 1.0f };
-	float spec[] = { 0.8f, 1.0f, 0.8f, 1.0f };
+	float amb[] = { 0.1f, 0.15f, 0.2f, 1.0f };
+	float diff[] = { 0.6f, 1.0f, 1.5f, 1.0f };
+	float spec[] = { 0.0f, 0.0f, 0.8f, 1.0f };
 	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	float shininess = 100.0f;
 	int texcount = 0;
@@ -1292,6 +1367,8 @@ void init()
 	float diff_value = diff[0]; // Similarly, use the first value of diff array
 	float spec_value = spec[0]; // Use the first value of spec array
 	float emissive_value = emissive[0]; // Use the first value of emissive array
+
+	amesh = createBuoys();
 
 	// Calling createTrees with the extracted values
 	amesh = createTrees(3.5f, 0.1f, 20, 0.7, 20, amb_value, diff_value, spec_value, emissive_value, shininess, texcount, amesh);

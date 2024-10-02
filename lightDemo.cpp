@@ -37,6 +37,7 @@
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#define NUM_POINT_LIGHTS 6
 #endif
 
 #define NUM_CREATURES 8
@@ -78,6 +79,13 @@ GLint pvm_uniformId;
 GLint vm_uniformId;
 GLint normal_uniformId;
 GLint lPos_uniformId;
+GLint pointlights_loc;
+GLint pointlights_loc1;
+GLint pointlights_loc2;
+GLint pointlights_loc3;
+GLint pointlights_loc4;
+GLint pointlights_loc5;
+GLint pointlights_loc6;
 GLint tex_loc, tex_loc1, tex_loc2;
 	
 // Camera Position
@@ -137,6 +145,75 @@ public:
 float deltaTimeElapsed = 1.0f / 60.0f;	// for 60 FPS
 
 vector<struct WaterCreature> waterCreatures;
+
+class PointLight {
+public:
+	// directional light position
+	//float directionalLightPos[4]{ 1.0f, 1000.0f, 1.0f, 0.0f };
+	// random pointlights positions for lights
+	float position[4];
+	float color[4];
+	GLint location = 0;
+	bool enabled = true;
+	//float color[4]; // Color of the light (r, g, b, a)
+	//GLint pointlightLocations[NUM_POINT_LIGHTS];
+	//GLint pointlightLocations;	
+	// 
+
+	// Constructor
+	PointLight(const float pos[4], const float col[4]) {
+		// Copy the values of pos and col into the member arrays
+		for (int i = 0; i < 4; ++i) {
+			position[i] = pos[i];
+		}
+		for (int i = 0; i < 4; ++i) {
+			color[i] = col[i];
+		}
+		enabled = true;
+	}
+
+	// Getter method for pointLightPosition
+	const float* getPointLightPosition() const {
+		return position;
+	}
+	// Setter method for pointLightPosition
+	void setPointLightPosition(const float newPosition[4]) {
+		// Use a loop to copy each element
+		for (int i = 0; i < 4; i++) {
+			position[i] = newPosition[i];
+		}
+	}
+
+};
+
+
+
+float positions[NUM_POINT_LIGHTS][4] = {
+		{ 3.0f, 3.0f, 3.0f, 1.0f },
+		{ 7.0f, 7.0f, 7.0f, 1.0f },
+		{ 2.0f, 10.0f, 2.0f, 1.0f },
+		{ 5.0f, 5.0f, 5.0f, 1.0f },
+		{ 17.0f, 8.0f, 7.0f, 1.0f },
+		{ 1.0f, 2.0f, 1.0f, 1.0f }
+};
+
+float colors[6][4] = { 
+	{0.3f, 0.7f, 0.2f, 1.0f},  // Greenish
+	{0.8f, 0.1f, 0.3f, 1.0f},  // Reddish
+	{0.2f, 0.4f, 0.8f, 1.0f},  // Blueish
+	{0.9f, 0.8f, 0.1f, 1.0f},  // Yellowish
+	{0.5f, 0.2f, 0.6f, 1.0f},  // Purplish
+	{0.1f, 0.9f, 0.7f, 1.0f}   // Tealish
+};
+
+std::vector<PointLight> pointLights;
+//PointLight pointLights[6] = {	PointLight(positions[0], colors[0]), 
+//								PointLight(positions[1], colors[1]), };
+
+
+
+//endof setup of pointlights
+
 
 // Função para gerar um valor aleatório entre min e max
 float randomFloat(float min, float max) {
@@ -617,8 +694,23 @@ void renderScene(void) {
 	//glUniform4fv(lPos_uniformId, 1, lightPos); //efeito capacete do mineiro, ou seja lighPos foi definido em eye coord 
 
 	float res[4];
-	multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
-	glUniform4fv(lPos_uniformId, 1, res);
+	//multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
+	//glUniform4fv(lPos_uniformId, 1, res);multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
+	//glUniform4fv(lPos_uniformId, 1, res);
+
+	// Para pointlights
+	multMatrixPoint(VIEW, pointLights[0].position, res);
+	glUniform4fv(pointLights[0].location, 1, res);
+	multMatrixPoint(VIEW, pointLights[1].position, res);
+	glUniform4fv(pointLights[1].location, 1, res);
+	multMatrixPoint(VIEW, pointLights[2].position, res);
+	glUniform4fv(pointLights[2].location, 1, res);
+	multMatrixPoint(VIEW, pointLights[3].position, res);
+	glUniform4fv(pointLights[3].location, 1, res);
+	multMatrixPoint(VIEW, pointLights[4].position, res);
+	glUniform4fv(pointLights[4].location, 1, res);
+	multMatrixPoint(VIEW, pointLights[5].position, res);
+	glUniform4fv(pointLights[5].location, 1, res);
 
 	// int objId = 0; //id of the object mesh - to be used as index of mesh: Mymeshes[objID] means the current mesh
 
@@ -891,7 +983,13 @@ GLuint setupShaders() {
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
-	lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
+	//lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
+	pointLights[0].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight0location");
+	pointLights[1].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight1location");
+	pointLights[2].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight2location");
+	pointLights[3].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight3location");
+	pointLights[4].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight4location");
+	pointLights[5].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight5location");
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	tex_loc2 = glGetUniformLocation(shader.getProgramIndex(), "texmap2");
@@ -1067,6 +1165,45 @@ MyMesh createWaterCreatures() {
 // Model loading and OpenGL setup
 //
 
+//void setupPointLights() {
+//	float positions[NUM_POINT_LIGHTS][4] = {
+//		{ -35.0f, 4.0f, -35.0f, 1.0f },
+//		{ 40.0f, 7.0f, 40.0f, 1.0f },
+//		{ 2.0f, 10.0f, 2.0f, 1.0f },
+//		{ 0.0f, 4.0f, 15.0f, 1.0f },
+//		{ 17.0f, -8.0f, 17.0f, 1.0f },
+//		{ 1.0f, -2.0f, 1.0f, 1.0f }
+//	};
+//
+//	float colors[6][4] = {
+//		{0.3f, 0.7f, 0.2f, 1.0f},  // Greenish
+//		{0.8f, 0.1f, 0.3f, 1.0f},  // Reddish
+//		{0.2f, 0.4f, 0.8f, 1.0f},  // Blueish
+//		{0.9f, 0.8f, 0.1f, 1.0f},  // Yellowish
+//		{0.5f, 0.2f, 0.6f, 1.0f},  // Purplish
+//		{0.1f, 0.9f, 0.7f, 1.0f}   // Tealish
+//	};
+//
+//	pointLights.push_back(PointLight(positions[0], colors[0]));
+//	pointLights.push_back(PointLight(positions[1], colors[1]));
+//	pointLights.push_back(PointLight(positions[2], colors[2]));
+//	pointLights.push_back(PointLight(positions[3], colors[3]));
+//	pointLights.push_back(PointLight(positions[4], colors[4]));
+//	pointLights.push_back(PointLight(positions[5], colors[5]));
+//}
+//
+//void sendPointLightData(GLuint shaderProgram) {
+//	for (int i = 0; i < pointLights.size(); i++) {
+//		std::string index = std::to_string(i);
+//		GLint posLoc = glGetUniformLocation(shaderProgram, ("pointLights[" + index + "].position").c_str());
+//		GLint colLoc = glGetUniformLocation(shaderProgram, ("pointLights[" + index + "].color").c_str());
+//
+//		// Directly passing arrays of floats
+//		glUniform4fv(posLoc, 1, pointLights[i].position);
+//		glUniform4fv(colLoc, 1, pointLights[i].color);
+//	}
+//}
+
 void init()
 {
 	MyMesh amesh;
@@ -1143,6 +1280,11 @@ void init()
 	// Create creatures that swim
 	amesh = createWaterCreatures();
 
+	// Create pointlights
+	/*setupPointLights();
+	sendPointLightData(shader.getProgramIndex());*/
+	
+
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -1199,6 +1341,21 @@ int main(int argc, char **argv) {
 	printf ("Renderer: %s\n", glGetString (GL_RENDERER));
 	printf ("Version: %s\n", glGetString (GL_VERSION));
 	printf ("GLSL: %s\n", glGetString (GL_SHADING_LANGUAGE_VERSION));
+
+	// Initialize lights vector
+	pointLights.push_back(PointLight(positions[0], colors[0]));
+	pointLights.push_back(PointLight(positions[1], colors[1]));
+	pointLights.push_back(PointLight(positions[2], colors[2]));
+	pointLights.push_back(PointLight(positions[3], colors[3]));
+	pointLights.push_back(PointLight(positions[4], colors[4]));
+	pointLights.push_back(PointLight(positions[5], colors[5]));
+	pointLights[0] = PointLight(positions[0], colors[0]);
+
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < 4; j++) {
+			printf("Active PointLight: %f\n", pointLights[i].position[j]);
+		}
+	}
 
 	if (!setupShaders())
 		return(1);

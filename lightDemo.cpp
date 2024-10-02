@@ -100,6 +100,9 @@ long myTime,timebase = 0,frame = 0;
 char s[32];
 float lightPos[4] = {4.0f, 6.0f, 2.0f, 1.0f};
 
+//Fog
+bool fogEnabled = false; 
+
 // Camera -------------
 class Camera {
 public:
@@ -614,6 +617,9 @@ void renderScene(void) {
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
+	//Enable/disable
+	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
+
 	float res[4];
 	multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
 	glUniform4fv(lPos_uniformId, 1, res);
@@ -738,6 +744,14 @@ void processKeys(unsigned char key, int xx, int yy)
 		activeCam = 3;
 		printf("Active Camera: %d\n", activeCam);
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
+		break;
+
+
+	case 'F': case 'f':
+		printf("fog ativado: %d\n", fogEnabled);
+		fogEnabled = !fogEnabled;  // Toggle fog on and off
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
+		break;
 		break;
 
 		
@@ -1087,7 +1101,6 @@ void init()
 
 	/// Initialization of freetype library with font_name file
 	freeType_init(font_name);
-
 
 	// top 
 	cams[0].camPos[0] = 0;

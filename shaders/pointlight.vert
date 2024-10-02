@@ -11,19 +11,21 @@ in vec4 normal;    //por causa do gerador de geometria
 in vec4 texCoord;
 
 out Data {
-	vec3 normal;
-	vec3 eye;
-	vec3 lightDir;
-	vec2 tex_coord;
+    vec3 normal;
+    vec3 eye;
+    vec3 lightDir;
+    vec2 tex_coord;
+    vec4 pos;  // Added this to pass the position to the fragment shader
 } DataOut;
 
 void main () {
-	vec4 pos = m_viewModel * position;
+    vec4 pos = m_viewModel * position;
 
-	DataOut.normal = normalize(m_normal * normal.xyz);
-	DataOut.lightDir = vec3(l_pos - pos);
-	DataOut.eye = vec3(-pos);
-	DataOut.tex_coord = texCoord.st;
+    DataOut.normal = normalize(m_normal * normal.xyz);
+    DataOut.lightDir = vec3(l_pos - pos);
+    DataOut.eye = vec3(-pos);
+    DataOut.tex_coord = texCoord.st;
+    DataOut.pos = pos;  // Pass the position to fragment shader
 
-	gl_Position = m_pvm * position;	
+    gl_Position = m_pvm * position;  
 }

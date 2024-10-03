@@ -156,6 +156,42 @@ float deltaTimeElapsed = 1.0f / 60.0f;	// for 60 FPS
 
 vector<struct WaterCreature> waterCreatures;
 
+struct Vec3 {
+	float x, y, z;
+
+	Vec3 operator+(const Vec3& other) const {
+		return { x + other.x, y + other.y, z + other.z };
+	}
+
+	Vec3 operator-(const Vec3& other) const {
+		return { x - other.x, y - other.y, z - other.z };
+	}
+
+	Vec3 operator*(float scalar) const {
+		return { x * scalar, y * scalar, z * scalar };
+	}
+
+	float length() const {
+		return sqrt(x * x + y * y + z * z);
+	}
+};
+
+struct Sphere {
+	Vec3 center;
+	float radius;
+};
+
+
+// Define buoy spheres
+Sphere buoySpheres[5] = {
+	{ { 15.0f, 0.2f, 1.5f }, 1.0f }, // buoy 1
+	{ { 12.0f, 0.2f, 6.5f }, 1.0f }, // buoy 2
+	{ { 18.0f, 0.2f, 3.0f }, 1.0f }, // buoy 3
+	{ { 6.0f, 0.2f, 5.0f }, 1.0f },  // buoy 4
+	{ { 22.0f, 0.2f, -1.0f }, 1.0f } // buoy 5
+};
+
+
 class PointLight {
 public:
 	// directional light position
@@ -304,6 +340,15 @@ void updateCreatures(float deltaT, float maxRadius) {
 }
 
 
+bool checkCollision(const Sphere& a, const Sphere& b) {
+	Vec3 delta = a.center - b.center;
+	float distanceSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+	float radiusSum = a.radius + b.radius;
+	return distanceSquared <= (radiusSum * radiusSum);
+}
+
+
+
 void timer(int value)
 {
 	std::ostringstream oss;
@@ -324,18 +369,41 @@ void animation(int value) {
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
 
+	Sphere boatSphere;
+	boatSphere.center = { boat.pos[0], boat.pos[1], boat.pos[2] };
+	boatSphere.radius = 1.0f;
+
+	// Verificar colisões
+	for (int i = 0; i < 5; ++i) {
+		if (checkCollision(boatSphere, buoySpheres[i])) {
+			// Colisão 
+			std::cout << "Colisão com boia " << (i + 1) << std::endl;
+			boat.speed = 0.0f;
+			Vec3 impactDirection = buoySpheres[i].center - boatSphere.center;
+			impactDirection = impactDirection * (1.0f / impactDirection.length()); // Normaliza
+
+			// Mover a boia na direção do impacto
+			buoySpheres[i].center = buoySpheres[i].center + (impactDirection * 0.5f);
+		}
+	}
+
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 
 	float dist = -10.0f;
 	float height = 7.5f;
 
-	cams[2].camPos[0] = boat.pos[0] + camX;  // Usa camX, camY, camZ para controlar a rota��o pelo rato
+	camX = dist * sin((alpha + boat.angle) * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+	camZ = dist * cos((alpha + boat.angle) * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
+	camY = dist * sin(beta * 3.14f / 180.0f);
+
+	cams[2].camPos[0] = boat.pos[0] + camX;  // Usa camX, camY, camZ para controlar a rotação pelo rato
 	cams[2].camPos[1] = boat.pos[1] + camY + height;
 	cams[2].camPos[2] = boat.pos[2] + camZ;
 
 	cams[2].camTarget[0] = boat.pos[0];
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
+	
 
 	updateCreatures(deltaT, MAX_RADIUS);
 
@@ -383,7 +451,6 @@ void renderBuoys(GLint loc) {
 	pushMatrix(MODEL);
 
 	do {
-		// printf("Dentro do while, meshId = %d\n", meshId);
 		// send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, myMeshes[meshId].mat.ambient);
@@ -395,17 +462,11 @@ void renderBuoys(GLint loc) {
 		glUniform1f(loc, myMeshes[meshId].mat.shininess);
 		pushMatrix(MODEL);
 
-		if (meshId == 1)
-			translate(MODEL, 15.0, 0.2, 1.5);
-		if (meshId == 2)
-			translate(MODEL, 12.0, 0.2, 6.5);
-		if (meshId == 3)
-			translate(MODEL, 18.0, 0.2, 3.0);
-		if (meshId == 4)
-			translate(MODEL, 6.0, 0.2, 5.0);
-		if (meshId == 5)
-			translate(MODEL, 22.0, 0.2, -1.0);
-		
+		// Use the buoySpheres' positions for translation
+		if (meshId >= 1 && meshId <= 5) {
+			translate(MODEL, buoySpheres[meshId - 1].center.x, buoySpheres[meshId - 1].center.y, buoySpheres[meshId - 1].center.z);
+		}
+
 		// send matrices to OGL
 		computeDerivedMatrix(PROJ_VIEW_MODEL);
 		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
@@ -415,7 +476,6 @@ void renderBuoys(GLint loc) {
 
 		// Render mesh
 		glBindVertexArray(myMeshes[meshId].vao);
-
 		glDrawElements(myMeshes[meshId].type, myMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 
@@ -425,6 +485,7 @@ void renderBuoys(GLint loc) {
 
 	popMatrix(MODEL);
 }
+
 
 void renderCreatures(GLint loc) {
 	int meshId = 0;
@@ -642,18 +703,23 @@ void renderBoat(GLint loc) {
 	popMatrix(MODEL);
 }
 
+
 void renderRows(GLint loc) {
 	int meshId = 0;
+	float oarMovementAngle = 0.0f;
+
+	// movimento dos remos
+	if (boat.speed > 0) {
+		oarMovementAngle = sin(glutGet(GLUT_ELAPSED_TIME) * 0.001f * boat.speed * 0.5f) * 15.0f; 
+	}
 
 	pushMatrix(MODEL);
-	// 1. Transladar o barco para a sua posi��o atual
-	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rodar sobre o pr�prio eixo
-	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);
 
 	do {
-		// send the material
+		// Send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, rowMeshes[meshId].mat.ambient);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
@@ -662,24 +728,25 @@ void renderRows(GLint loc) {
 		glUniform4fv(loc, 1, rowMeshes[meshId].mat.specular);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 		glUniform1f(loc, rowMeshes[meshId].mat.shininess);
+
 		pushMatrix(MODEL);
 
-		// Transformations
-		if (meshId == 0) { // left row
+		// Transformações
+		if (meshId == 0) { // remo esquerdo
 			translate(MODEL, -1.0f, 1.0f, 0.0f);
-			rotate(MODEL, 90, 0, 0, 1);
+			rotate(MODEL, 90 + oarMovementAngle, 0, 0, 1); 
 		}
 		else if (meshId == 1) {
 			translate(MODEL, -2.1f, 0.95f, 0.0f);
-			rotate(MODEL, 90, 0, 0, 1);
+			rotate(MODEL, 90 + oarMovementAngle, 0, 0, 1); 
 		}
-		else if (meshId == 2) { // right row
+		else if (meshId == 2) { // remo direito
 			translate(MODEL, 1.0f, 1.0f, 0.0f);
-			rotate(MODEL, -90, 0, 0, 1);
+			rotate(MODEL, -90 - oarMovementAngle, 0, 0, 1); 
 		}
 		else if (meshId == 3) {
 			translate(MODEL, 2.1f, 0.95f, 0.0f);
-			rotate(MODEL, -90, 0, 0, 1);
+			rotate(MODEL, -90 - oarMovementAngle, 0, 0, 1); 
 		}
 
 		// send matrices to OGL
@@ -691,7 +758,6 @@ void renderRows(GLint loc) {
 
 		// Render mesh
 		glBindVertexArray(rowMeshes[meshId].vao);
-
 		glDrawElements(rowMeshes[meshId].type, rowMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 
@@ -701,6 +767,9 @@ void renderRows(GLint loc) {
 
 	popMatrix(MODEL);
 }
+
+
+
 
 void renderScene(void) {
 
@@ -970,8 +1039,8 @@ void processMouseMotion(int xx, int yy)
 	float alphaAux, betaAux;
 	float rAux;
 
-	deltaX =  - xx + startX;
-	deltaY =    yy - startY;
+	deltaX = -xx + startX;
+	deltaY = yy - startY;
 
 	// left mouse button: move camera
 	if (tracking == 1) {
@@ -996,12 +1065,12 @@ void processMouseMotion(int xx, int yy)
 			rAux = 0.1f;
 	}
 
-	camX = rAux * sin(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
-	camZ = rAux * cos(alphaAux * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
-	camY = rAux *   						       sin(betaAux * 3.14f / 180.0f);
+	//camX = rAux * sin((alpha + boat.angle) * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
+	//camZ = rAux * cos((alphaAux + boat.angle) * 3.14f / 180.0f) * cos(betaAux * 3.14f / 180.0f);
+	//camY = rAux * sin(betaAux * 3.14f / 180.0f);
 
-//  uncomment this if not using an idle or refresh func
-//	glutPostRedisplay();
+	//  uncomment this if not using an idle or refresh func
+	//	glutPostRedisplay();
 }
 
 

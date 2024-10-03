@@ -41,6 +41,7 @@
 #define NUM_POINT_LIGHTS 6
 #endif
 
+#define NUM_TRANSPARENT_OBJS 3
 #define NUM_BUOYS 5
 #define NUM_CREATURES 8
 #define MAX_RADIUS 25.0
@@ -67,6 +68,7 @@ vector<struct MyMesh> houseMeshes;
 vector<struct MyMesh> treeMeshes;
 vector<struct MyMesh> boatMeshes;
 vector<struct MyMesh> rowMeshes;
+vector<struct MyMesh> ballMeshes;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -470,6 +472,62 @@ void changeSize(int w, int h) {
 
 /*
 */
+void renderBalls(GLint loc) {
+	int meshId = 0;
+	pushMatrix(MODEL);
+
+	// Ativa o blending para transparência
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	do {
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, ballMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		// printf("BALL ALPHA: %f\n", ballMeshes[meshId].mat.diffuse[3]);
+		// Definir transparência (50%)
+		// ballMeshes[meshId].mat.diffuse[3] = 0.5f; 
+
+		glUniform4fv(loc, 1, ballMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, ballMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, ballMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		/*
+		*/
+		if (meshId == 0) {
+			translate(MODEL, -2.0, 0.5, 4.0);
+		}
+		else if (meshId == 2) {
+			translate(MODEL, 8.0, 0.5, 2.0);
+		}
+		else {
+			translate(MODEL, 2.0, 0.5, 6.0);
+		}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// Render mesh
+		glBindVertexArray(ballMeshes[meshId].vao);
+		glDrawElements(ballMeshes[meshId].type, ballMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < ballMeshes.size());
+
+	popMatrix(MODEL);
+	glDisable(GL_BLEND);
+}
+
 void renderBuoys(GLint loc) {
 	int meshId = 1; // myMeshes[0] has the terrain mesh
 	pushMatrix(MODEL);
@@ -923,6 +981,7 @@ void renderScene(void) {
 	renderBoat(loc);
 	renderRows(loc);
 	renderCreatures(loc);
+	renderBalls(loc);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -1324,7 +1383,6 @@ MyMesh createBoat(float baseWidth, float baseLength, float height, float amb, fl
 
 MyMesh createWaterCreatures() {
 	MyMesh creatureMesh;
-	// int numberOfCreatures = 2;
 
 	float amb[] = { 0.1f, 0.15f, 0.2f, 1.0f };
 	float diff[] = { 0.6f, 1.0f, 1.5f, 1.0f };
@@ -1347,6 +1405,33 @@ MyMesh createWaterCreatures() {
 	initializeCreatures(NUM_CREATURES, MAX_RADIUS);
 
 	return creatureMesh;
+}
+
+/*
+*/
+MyMesh createGlassBalls(float radius, int divisions) {
+	MyMesh ballMesh;
+
+	// Alpha < 1.0 for transparency
+	float amb[] = { 0.5f, 0.0f, 0.0f, 0.5f };
+	float diff[] = { 0.0f, 0.0f, 0.5f, 0.2f };
+	float spec[] = { 0.0f, 1.0f, 0.0f, 0.3f };
+	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float shininess = 100.0f;
+	int texcount = 0;
+
+	for (int i = 0; i < NUM_TRANSPARENT_OBJS; i++) {
+		ballMesh = createSphere(radius, divisions);
+		memcpy(ballMesh.mat.ambient, amb, 4 * sizeof(float));
+		memcpy(ballMesh.mat.diffuse, diff, 4 * sizeof(float));
+		memcpy(ballMesh.mat.specular, spec, 4 * sizeof(float));
+		memcpy(ballMesh.mat.emissive, emissive, 4 * sizeof(float));
+		ballMesh.mat.shininess = shininess;
+		ballMesh.mat.texCount = texcount;
+		ballMeshes.push_back(ballMesh);
+	}
+
+	return ballMesh;
 }
 
 // ------------------------------------------------------------
@@ -1461,6 +1546,7 @@ void init()
 	float spec_value = spec[0]; // Use the first value of spec array
 	float emissive_value = emissive[0]; // Use the first value of emissive array
 
+	amesh = createGlassBalls(0.5, 20);
 	amesh = createBuoys();
 
 	// Calling createTrees with the extracted values

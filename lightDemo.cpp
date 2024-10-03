@@ -290,6 +290,7 @@ void initCreature(WaterCreature& creature, float maxRadius) {
 	creature.oscillationTime = 0.0f;					// tempo de oscila��o
 }
 
+Sphere creatureSpheres[NUM_CREATURES];
 // Inicializa N criaturas com posi��es aleat�rias
 void initializeCreatures(int numCreatures, float maxRadius) {
 	waterCreatures.clear();
@@ -297,6 +298,10 @@ void initializeCreatures(int numCreatures, float maxRadius) {
 		WaterCreature creature;
 		initCreature(creature, maxRadius);
 		waterCreatures.push_back(creature);
+			
+		// Bounding spheres para as criaturas
+		creatureSpheres[i].center = { creature.pos[0], creature.pos[1], creature.pos[2] };
+		creatureSpheres[i].radius = 1.0f;  
 	}
 }
 
@@ -307,6 +312,12 @@ void updateCreatures(float deltaT, float maxRadius) {
 		// Atualiza a posi��o com base na dire��o e velocidade
 		creature.pos[0] += creature.direction[0] * creature.speed * deltaT;
 		creature.pos[2] += creature.direction[2] * creature.speed * deltaT;
+
+		// Atualizar esferas de colisão
+		for (int i = 0; i < waterCreatures.size(); ++i) {
+			creatureSpheres[i].center = { waterCreatures[i].pos[0], waterCreatures[i].pos[1], waterCreatures[i].pos[2] };
+		}
+
 
 		// Atualiza o tempo de oscila��o
 		creature.oscillationTime += deltaT;
@@ -373,10 +384,10 @@ void animation(int value) {
 	boatSphere.center = { boat.pos[0], boat.pos[1], boat.pos[2] };
 	boatSphere.radius = 1.0f;
 
-	// Verificar colisões
+
+	// Verificar colisões com Boias
 	for (int i = 0; i < 5; ++i) {
 		if (checkCollision(boatSphere, buoySpheres[i])) {
-			// Colisão 
 			std::cout << "Colisão com boia " << (i + 1) << std::endl;
 			boat.speed = 0.0f;
 			Vec3 impactDirection = buoySpheres[i].center - boatSphere.center;
@@ -386,6 +397,19 @@ void animation(int value) {
 			buoySpheres[i].center = buoySpheres[i].center + (impactDirection * 0.5f);
 		}
 	}
+
+	// Verificar colisões com criaturas aquáticas
+	for (int i = 0; i < waterCreatures.size(); ++i) {
+		if (checkCollision(boatSphere, creatureSpheres[i])) {
+			// posição do barco para a posição inicial
+			boat.pos[0] = 0.0f;
+			boat.pos[1] = 0.0f;
+			boat.pos[2] = 0.0f;
+			printf("Colidiu com uma criatura!\n");
+			break; 
+		}
+	}
+
 
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 

@@ -37,7 +37,7 @@ out Data {
 	vec3 normal;
 	vec3 eye;
 	vec4 lightDir[9];
-	int lightStates[9];
+	flat int lightStates[9];
     vec2 tex_coord;
     vec4 pos;  // Added this to pass the position to the fragment shader
 } DataOut;

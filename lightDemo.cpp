@@ -88,6 +88,7 @@ GLint pointlights_loc3;
 GLint pointlights_loc4;
 GLint pointlights_loc5;
 GLint pointlights_loc6;
+GLint lightStatesLoc;
 //GLint tex_loc, tex_loc1, tex_loc2;
 
 // Textures
@@ -156,22 +157,27 @@ float deltaTimeElapsed = 1.0f / 60.0f;	// for 60 FPS
 
 vector<struct WaterCreature> waterCreatures;
 
-class PointLight {
+
+const float defaultColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+class Light {
 public:
 	// directional light position
 	//float directionalLightPos[4]{ 1.0f, 1000.0f, 1.0f, 0.0f };
-	// random pointlights positions for lights
-	float position[4];
+	// random positions for lights
+	float position[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float direction[4];
 	float color[4];
 	GLint location = 0;
-	bool enabled = true;
+	int enabled = 1;
+	GLint enabledLocation = 0;
 	//float color[4]; // Color of the light (r, g, b, a)
 	//GLint pointlightLocations[NUM_POINT_LIGHTS];
 	//GLint pointlightLocations;	
 	// 
 
 	// Constructor
-	PointLight(const float pos[4], const float col[4]) {
+	Light(const float pos[4], const float col[4], int enabled) {
 		// Copy the values of pos and col into the member arrays
 		for (int i = 0; i < 4; ++i) {
 			position[i] = pos[i];
@@ -179,44 +185,84 @@ public:
 		for (int i = 0; i < 4; ++i) {
 			color[i] = col[i];
 		}
-		enabled = true;
+		enabled = enabled;
 	}
 
 	// Getter method for pointLightPosition
-	const float* getPointLightPosition() const {
+	const float* getLightPosition() const {
 		return position;
 	}
 	// Setter method for pointLightPosition
-	void setPointLightPosition(const float newPosition[4]) {
+	void setLightPosition(const float newPosition[4]) {
 		// Use a loop to copy each element
 		for (int i = 0; i < 4; i++) {
 			position[i] = newPosition[i];
 		}
 	}
 
+	// Setter method for direction
+	void setDirection(const float newDirection[4]) {
+		// Use a loop to copy each element
+		for (int i = 0; i < 3; i++) {
+			direction[i] = newDirection[i];
+		}
+		direction[3] = 0.0f;
+	}
+
 };
 
+class Spotlight : public Light {
+public:
+	float direction[4];
+	//float position[4];
+	float cutOffAngle = 0.0;
+	float intensity = 0.0;
 
 
-float positions[NUM_POINT_LIGHTS][4] = {
-		{ 3.0f, 3.0f, 3.0f, 1.0f },
-		{ 17.0f, -7.0f, 7.0f, 1.0f },
+	Spotlight(const float position[4], float direction[4], float cutOffAngle, float intensity, int enabled)
+		: Light(position, defaultColor, enabled)  // Call the Light constructor with default white color
+	{
+		for (int i = 0; i < 4; ++i) {
+			this->direction[i] = direction[i];
+		}
+
+		this->cutOffAngle = cutOffAngle;
+		this->intensity = intensity;
+	}
+
+};
+
+int states[9] = { 0,1,0,1,0,0,0,1,1 };
+
+float positions[9][4] = {
+		{ 30.0f, 30.0f, 30.0f, 1.0f },
+		{ 17.0f, -20.0f, 7.0f, 1.0f },
 		{ 12.0f, 10.0f, 2.0f, 1.0f },
-		{ 5.0f, 5.0f, 5.0f, 1.0f },
-		{ 17.0f, 8.0f, -7.0f, 1.0f },
-		{ 1.0f, 2.0f, 1.0f, 1.0f }
+		{ 50.0f, 50.0f, 50.0f, 1.0f },
+		{ 25.0f, 8.0f, -7.0f, 1.0f },
+		{ 1.0f, 2.0f, 1.0f, 1.0f },
+		{ 10.0f, 20.0f, 10.0f, 0.0f }, /// Directional Light
+		{ 1.0f, 2.0f, 1.0f, 1.0f }, /// Spotlight 1
+		{ 1.0f, 3.0f, 1.0f, 1.0f }, /// Spotlight 2
 };
 
-float colors[6][4] = { 
+float colors[9][4] = { 
 	{0.3f, 0.7f, 0.2f, 1.0f},  // Greenish
 	{0.8f, 0.1f, 0.3f, 1.0f},  // Reddish
 	{0.2f, 0.4f, 0.8f, 1.0f},  // Blueish
 	{0.9f, 0.8f, 0.1f, 1.0f},  // Yellowish
 	{0.5f, 0.2f, 0.6f, 1.0f},  // Purplish
-	{0.1f, 0.9f, 0.7f, 1.0f}   // Tealish
+	{0.1f, 0.9f, 0.7f, 1.0f},   // Tealish
+	{0.9f, 0.8f, 0.1f, 1.0f},  // Yellowish
+	{0.5f, 0.2f, 0.6f, 1.0f},  // Purplish
+	{0.1f, 0.9f, 0.7f, 1.0f},   // Tealish
 };
 
-std::vector<PointLight> pointLights;
+float direction[2][4] = { { 1.0f, -1.0f, 0.0f, 0.0f } , { 2.0f, -1.0f, 0.0f, 0.0f } };
+float cutOffAngle[2] = { 0.5f, 0.5 };
+float intensity[2] = {50.0f, 50.f};
+
+std::vector<Light> lights;
 //PointLight pointLights[6] = {	PointLight(positions[0], colors[0]), 
 //								PointLight(positions[1], colors[1]), };
 
@@ -702,6 +748,30 @@ void renderRows(GLint loc) {
 	popMatrix(MODEL);
 }
 
+
+// Function to update the spotlight's position and direction based on the boat
+void updateSpotlight(Spotlight& spotlight, const Boat& boat) {
+	// Update the spotlight position to match the boat's position
+	lights[7].position[0] = boat.pos[0];
+	lights[7].position[1] = boat.pos[1];
+	lights[7].position[2] = boat.pos[2];
+	lights[7].position[3] = 1.0f;
+	lights[8].position[0] = boat.pos[0];
+	lights[8].position[1] = boat.pos[1];
+	lights[8].position[2] = boat.pos[2];
+	lights[8].position[3] = 1.0f;
+
+	// Calculate the new direction based on the boat's angle
+	float radians = boat.angle; // Convert angle to radians
+	float direction[3] = { cos(radians), 0.0f, sin(radians) }; // Spotlight direction
+
+	// Set the spotlight direction
+	lights[7].setDirection(direction); // Direction is a vec4 with w = 0
+	lights[8].setDirection(direction); // Direction is a vec4 with w = 0
+
+
+}
+
 void renderScene(void) {
 
 	GLint loc;
@@ -753,18 +823,40 @@ void renderScene(void) {
 	//glUniform4fv(lPos_uniformId, 1, res);
 
 	// Para pointlights
-	multMatrixPoint(VIEW, pointLights[0].position, res);
-	glUniform4fv(pointLights[0].location, 1, res);
-	multMatrixPoint(VIEW, pointLights[1].position, res);
-	glUniform4fv(pointLights[1].location, 1, res);
-	multMatrixPoint(VIEW, pointLights[2].position, res);
-	glUniform4fv(pointLights[2].location, 1, res);
-	multMatrixPoint(VIEW, pointLights[3].position, res);
-	glUniform4fv(pointLights[3].location, 1, res);
-	multMatrixPoint(VIEW, pointLights[4].position, res);
-	glUniform4fv(pointLights[4].location, 1, res);
-	multMatrixPoint(VIEW, pointLights[5].position, res);
-	glUniform4fv(pointLights[5].location, 1, res);
+	multMatrixPoint(VIEW, lights[0].position, res);
+	glUniform4fv(lights[0].location, 1, res);
+	multMatrixPoint(VIEW, lights[1].position, res);
+	glUniform4fv(lights[1].location, 1, res);
+	multMatrixPoint(VIEW, lights[2].position, res);
+	glUniform4fv(lights[2].location, 1, res);
+	multMatrixPoint(VIEW, lights[3].position, res);
+	glUniform4fv(lights[3].location, 1, res);
+	multMatrixPoint(VIEW, lights[4].position, res);
+	glUniform4fv(lights[4].location, 1, res);
+	multMatrixPoint(VIEW, lights[5].position, res);
+	glUniform4fv(lights[5].location, 1, res);
+	// Para directional light
+	multMatrixPoint(VIEW, lights[6].position, res);
+	glUniform4fv(lights[6].location, 1, res);
+	// Para Spotlights
+	multMatrixPoint(VIEW, lights[7].position, res);
+	glUniform4fv(lights[7].location, 1, res);
+	multMatrixPoint(VIEW, lights[8].position, res);
+	glUniform4fv(lights[8].location, 1, res);
+
+	glUniform1iv(lightStatesLoc, 9, states);
+
+	//glUniform1iv(lightStatesLoc[1], 1, &states[1]);
+	//glUniform1iv(lightStatesLoc[2], 1, &states[2]);
+	//glUniform1iv(lightStatesLoc[3], 1, &states[3]);
+	//glUniform1iv(lightStatesLoc[4], 1, &states[4]);
+	//glUniform1iv(lightStatesLoc[5], 1, &states[5]);
+	//glUniform1iv(lightStatesLoc[6], 1, &states[6]);
+	//glUniform1iv(lightStatesLoc[7], 1, &states[7]);
+	//glUniform1iv(lightStatesLoc[8], 1, &states[8]);
+	/*for (int i = 0; i < 9; i++) {
+		std::cout << "State at index " << i << " is: " << states[i] << std::endl;
+	}*/
 
 	//Associar os Texture Units aos Objects Texture
 	//stone.tga loaded in TU0; checker.tga loaded in TU1;  lightwood.tga loaded in TU2
@@ -925,6 +1017,26 @@ void processKeys(unsigned char key, int xx, int yy)
 			break;
 		case 'm': glEnable(GL_MULTISAMPLE); break;
 		case 'n': glDisable(GL_MULTISAMPLE); break;
+		
+		// Toggle light states
+		case '5': // Toggle lights 0 to 5
+			for (int i = 0; i <= 5; ++i) {
+				lights[i].enabled = -lights[i].enabled; // Toggle enabled state
+				printf("Light %d enabled: %d\n", i, lights[i].enabled);
+			}
+			break;
+
+		case '6': // Toggle lights 6 to 7
+			for (int i = 6; i <= 7; ++i) {
+				lights[i].enabled = -lights[i].enabled; // Toggle enabled state
+				printf("Light %d enabled: %d\n", i, lights[i].enabled);
+			}
+			break;
+
+		case '8': // Toggle light 8
+			lights[8].enabled = -lights[8].enabled; // Toggle enabled state
+			printf("Light 8 enabled: %d\n", lights[8].enabled);
+			break;
 	}
 }
 
@@ -1054,12 +1166,37 @@ GLuint setupShaders() {
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");
 	//lPos_uniformId = glGetUniformLocation(shader.getProgramIndex(), "l_pos");
-	pointLights[0].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight0location");
-	pointLights[1].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight1location");
-	pointLights[2].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight2location");
-	pointLights[3].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight3location");
-	pointLights[4].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight4location");
-	pointLights[5].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight5location");
+	lights[0].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight0location");
+	lights[1].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight1location");
+	lights[2].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight2location");
+	lights[3].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight3location");
+	lights[4].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight4location");
+	lights[5].location = glGetUniformLocation(shader.getProgramIndex(), "pointLight5location");
+	lights[6].location = glGetUniformLocation(shader.getProgramIndex(), "directionalLightLocation");
+	lights[7].location = glGetUniformLocation(shader.getProgramIndex(), "spotlight0LightLocation");
+	lights[8].location = glGetUniformLocation(shader.getProgramIndex(), "spotlight1LightLocation");
+
+	/*lightStatesLoc[0] = glGetUniformLocation(shader.getProgramIndex(), "pointLight0state");
+	lightStatesLoc[1] = glGetUniformLocation(shader.getProgramIndex(), "pointLight1state");
+	lightStatesLoc[2] = glGetUniformLocation(shader.getProgramIndex(), "pointLight2state");
+	lightStatesLoc[3] = glGetUniformLocation(shader.getProgramIndex(), "pointLight3state");
+	lightStatesLoc[4] = glGetUniformLocation(shader.getProgramIndex(), "pointLight4state");
+	lightStatesLoc[5] = glGetUniformLocation(shader.getProgramIndex(), "pointLight5state");
+	lightStatesLoc[6] = glGetUniformLocation(shader.getProgramIndex(), "directionalLightstate");
+	lightStatesLoc[7] = glGetUniformLocation(shader.getProgramIndex(), "spotLight0state");
+	lightStatesLoc[8] = glGetUniformLocation(shader.getProgramIndex(), "spotLight1state");*/
+	GLint lightStatesLoc = glGetUniformLocation(shader.getProgramIndex(), "lightStates");
+
+	//lights[0].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight0state");
+	//lights[1].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight1state");
+	//lights[2].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight2state");
+	//lights[3].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight3state");
+	//lights[4].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight4state");
+	//lights[5].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "pointLight5state");
+	//lights[6].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "directionalLightstate");
+	//lights[7].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "spotLight0state");
+	//lights[8].enabledLocation = glGetUniformLocation(shader.getProgramIndex(), "spotLight1state");
+	/*lightStatesLoc = glGetUniformLocation(shader.getProgramIndex(), "lightStates");*/
 	tex_loc = glGetUniformLocation(shader.getProgramIndex(), "texmap");
 	tex_loc1 = glGetUniformLocation(shader.getProgramIndex(), "texmap1");
 	/*
@@ -1446,19 +1583,22 @@ int main(int argc, char **argv) {
 	printf ("GLSL: %s\n", glGetString (GL_SHADING_LANGUAGE_VERSION));
 
 	// Initialize lights vector
-	pointLights.push_back(PointLight(positions[0], colors[0]));
-	pointLights.push_back(PointLight(positions[1], colors[1]));
-	pointLights.push_back(PointLight(positions[2], colors[2]));
-	pointLights.push_back(PointLight(positions[3], colors[3]));
-	pointLights.push_back(PointLight(positions[4], colors[4]));
-	pointLights.push_back(PointLight(positions[5], colors[5]));
-	pointLights[0] = PointLight(positions[0], colors[0]);
+	lights.push_back(Light(positions[0], colors[0], states[0]));
+	lights.push_back(Light(positions[1], colors[1], states[1]));
+	lights.push_back(Light(positions[2], colors[2], states[2]));
+	lights.push_back(Light(positions[3], colors[3], states[3]));
+	lights.push_back(Light(positions[4], colors[4], states[4]));
+	lights.push_back(Light(positions[5], colors[5], states[5]));
+	lights.push_back(Light(positions[6], colors[6], states[6])); // Directional light
+	lights.push_back(Spotlight(positions[7], direction[0], cutOffAngle[0], intensity[0], states[7])); // Spotlight 1
+	lights.push_back(Spotlight(positions[8], direction[1], cutOffAngle[1], intensity[1], states[8])); // Spotlight 2
+	//Spotlight(const float position[4], float direction[4], float cutOffAngle, float intensity)
 
-	for (int i = 0; i < 6; i++) {
+	/*for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 4; j++) {
-			printf("Active PointLight: %f\n", pointLights[i].position[j]);
+			printf("Active PointLight: %f\n", lights[i].position[j]);
 		}
-	}
+	}*/
 
 	if (!setupShaders())
 		return(1);

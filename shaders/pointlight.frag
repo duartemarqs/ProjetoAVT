@@ -56,7 +56,7 @@ void main() {
 //	}
     
 	// Iterate over the light sources
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 8; i++) {
         // Check if the light is enabled
         if(DataIn.lightStates[i] == 0) {
             // Extract the light direction

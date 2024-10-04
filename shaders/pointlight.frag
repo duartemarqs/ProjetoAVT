@@ -25,7 +25,8 @@ uniform float fogDensity = 0.02;  // Density for the exponential fog
 in Data {
 	vec3 normal;
 	vec3 eye;
-	vec3 lightDir[6];
+	vec4 lightDir[9];
+    flat int lightStates[9];
     vec2 tex_coord;
     vec4 pos;  // Position from vertex shader
 } DataIn;
@@ -36,6 +37,7 @@ void main() {
 	float intensity = 0.0f;
 	float intSpec = 0.0f;
     vec4 texel, texel1; 
+    vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
 
 
 	vec3 n = normalize(DataIn.normal);
@@ -54,19 +56,20 @@ void main() {
 //	}
     
 	// Iterate over the light sources
-    for (int i = 0; i < 6; i++) {
-        vec3 l = normalize(DataIn.lightDir[i]); // Get the light direction
-        intensity += max(dot(n, l), 0.0); // Calculate the diffuse intensity
-        
-        if (intensity > 0.0) {
-            // Blinn-Phong specular calculation
-            vec3 h = normalize(l + e); // Halfway vector
-            float intSpec = max(dot(h, n), 0.0);
-            spec += mat.specular * pow(intSpec, mat.shininess); // Specular component
+    for (int i = 0; i < 2; i++) {
+        // Check if the light is enabled
+        if(DataIn.lightStates[i] == 0) {
+            // Extract the light direction
+            vec3 l = normalize(DataIn.lightDir[i].xyz); // Assume lightDir contains direction vectors
+            intensity += max(dot(n, l), 0.0); // Calculate the diffuse intensity
 
-            // Accumulate the diffuse and specular results from each light
-//            finalDiffuse += intensity * mat.diffuse * lightColors[i]; // Add diffuse lighting
-//            finalSpecular += spec * lightColors[i]; // Add specular lighting
+            // Check if the intensity is greater than zero for specular calculation
+            if (intensity > 0.0) {
+                // Blinn-Phong specular calculation
+                vec3 h = normalize(l + e); // Halfway vector
+                float intSpec = max(dot(h, n), 0.0);
+                spec += mat.specular * pow(intSpec, mat.shininess); // Specular component
+            }
         }
     }
 	
@@ -75,9 +78,9 @@ void main() {
     if (texMode == 1) {  // multitexturing
         texel = texture(texmap, DataIn.tex_coord);  
         texel1 = texture(texmap1, DataIn.tex_coord);
-        colorOut = max(intensity*texel*texel1 + spec, 0.07*texel*texel1);
+        colorOut = max(intensity/3 *texel*texel1 + spec, 0.07*texel*texel1);
     } else {
-        colorOut = max(intensity * mat.diffuse + spec, mat.ambient);
+        colorOut = max(intensity/3 * mat.diffuse + spec, mat.ambient);
     }
 
     // Calculate fog if enabled

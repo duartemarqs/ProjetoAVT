@@ -10,12 +10,12 @@ in vec4 position;
 in vec4 normal;    //por causa do gerador de geometria
 in vec4 texCoord;
 
-uniform vec4 pointLight0location;
-uniform vec4 pointLight1location;
-uniform vec4 pointLight2location;
-uniform vec4 pointLight3location;
-uniform vec4 pointLight4location;
-uniform vec4 pointLight5location;
+uniform vec4 pointLight0location; 
+uniform vec4 pointLight1location; 
+uniform vec4 pointLight2location; 
+uniform vec4 pointLight3location; 
+uniform vec4 pointLight4location; 
+uniform vec4 pointLight5location; 
 uniform vec4 directionalLightLocation;
 uniform vec4 spotLight0location;
 uniform vec4 spotLight1location;

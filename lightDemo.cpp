@@ -58,6 +58,10 @@ unsigned int FrameCount = 0;
 VSShaderLib shader;  //geometry
 VSShaderLib shaderText;  //render bitmap text
 
+bool directionalLightState = true;
+bool pointLightState = true;
+bool spotLightState = true;
+
 //File with the font
 const string font_name = "fonts/arial.ttf";
 
@@ -273,13 +277,15 @@ public:
 int states[9] = { 0,1,0,1,0,0,0,1,1 };
 
 float positions[9][4] = {
-		{ 30.0f, 30.0f, 30.0f, 1.0f },
-		{ 17.0f, -20.0f, 7.0f, 1.0f },
-		{ 12.0f, 10.0f, 2.0f, 1.0f },
-		{ 50.0f, 50.0f, 50.0f, 1.0f },
-		{ 25.0f, 8.0f, -7.0f, 1.0f },
-		{ 1.0f, 2.0f, 1.0f, 1.0f },
+		{ -10.98f, 5.0f, -2.35f, 1.0f },
+		{ -12.0f, 5.0f, 8.02f, 1.0f },
+		{ -1.67f, 5.0f, 13.08f, 1.0f },
+		{ -3.35f, 5.0f, 0.58f, 1.0f },
+		{ 5.87f, 5.0f, -5.36f, 1.0f },
+		{ 5.80f, 5.0f, 18.31f, 1.0f },
+
 		{ 10.0f, 20.0f, 10.0f, 0.0f }, /// Directional Light
+
 		{ 1.0f, 2.0f, 1.0f, 1.0f }, /// Spotlight 1
 		{ 1.0f, 3.0f, 1.0f, 1.0f }, /// Spotlight 2
 };
@@ -396,27 +402,31 @@ void updateCreatures(float deltaT, float maxRadius) {
 	}
 }
 
-// Function to update the spotlight's position and direction based on the boat
-void updateSpotlight(Spotlight& spotlight, const Boat& boat) {
-	// Update the spotlight position to match the boat's position
-	lights[7].position[0] = boat.pos[0];
-	lights[7].position[1] = boat.pos[1];
-	lights[7].position[2] = boat.pos[2];
-	lights[7].position[3] = 1.0f;
-	lights[8].position[0] = boat.pos[0];
-	lights[8].position[1] = boat.pos[1];
-	lights[8].position[2] = boat.pos[2];
-	lights[8].position[3] = 1.0f;
+void updateSpotlights() {
 
-	// Calculate the new direction based on the boat's angle
-	float radians = boat.angle; // Convert angle to radians
-	float direction[3] = { cos(radians), 0.0f, sin(radians) }; // Spotlight direction
+	float boatPosX = boat.pos[0];
+	float boatPosY = boat.pos[1];
+	float boatPosZ = boat.pos[2];
 
-	// Set the spotlight direction
-	lights[7].setDirection(direction); // Direction is a vec4 with w = 0
-	lights[8].setDirection(direction); // Direction is a vec4 with w = 0
+	float distanceFromBoat = 0.001f; 
+	float angleRad = boat.angle * M_PI / 180.0f; // Converter ângulo para radianos
 
+	
+	lights[7].position[0] = boatPosX + distanceFromBoat * cos(angleRad);
+	lights[7].position[1] = boatPosY + 2.0f; 
+	lights[7].position[2] = boatPosZ - distanceFromBoat * sin(angleRad);
+
+	lights[8].position[0] = boatPosX + distanceFromBoat * cos(angleRad);
+	lights[8].position[1] = boatPosY + 2.0f;
+	lights[8].position[2] = boatPosZ - distanceFromBoat * sin(angleRad);
+
+	printf("Posição da SpotLigth7: x = %f, y = %f, z = %f\n", lights[7].position[0], lights[7].position[1], lights[7].position[2]);
+
+	lights[7].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight0location");
+	lights[8].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight1location");
 }
+
+
 
 
 bool checkCollision(const Sphere& a, const Sphere& b) {
@@ -439,21 +449,26 @@ void timer(int value)
 	glutTimerFunc(1000, timer, 0);
 }
 
+
 void animation(int value) {
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
 	boat.direction[1] = 0;
 	boat.direction[2] = cos(boat.angle * M_PI / 180);
 
+	// Atualiza a posição do barco
 	boat.pos[0] += boat.direction[0] * boat.speed * deltaT;
 	boat.pos[1] += boat.direction[1] * boat.speed * deltaT;
 	boat.pos[2] += boat.direction[2] * boat.speed * deltaT;
+
+	//printf("Posição do barco: x = %f, y = %f, z = %f\n", boat.pos[0], boat.pos[1], boat.pos[2]);
+
+	updateSpotlights();
 
 	Sphere boatSphere;
 	boatSphere.center = { boat.pos[0], boat.pos[1], boat.pos[2] };
 	boatSphere.radius = 1.0f;
 
-
-	// Verificar colisões com Boias
+	// Verificar colisões com boias
 	for (int i = 0; i < 5; ++i) {
 		if (checkCollision(boatSphere, buoySpheres[i])) {
 			std::cout << "Colisão com boia " << (i + 1) << std::endl;
@@ -478,17 +493,17 @@ void animation(int value) {
 		}
 	}
 
-
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 
+	// Atualizar a câmera
 	float dist = -10.0f;
 	float height = 7.5f;
 
-	camX = dist * sin((alpha + boat.angle) * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camZ = dist * cos((alpha + boat.angle) * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
-	camY = dist * sin(beta * 3.14f / 180.0f);
+	camX = dist * sin((alpha + boat.angle) * M_PI / 180.0f) * cos(beta * M_PI / 180.0f);
+	camZ = dist * cos((alpha + boat.angle) * M_PI / 180.0f) * cos(beta * M_PI / 180.0f);
+	camY = dist * sin(beta * M_PI / 180.0f);
 
-	cams[2].camPos[0] = boat.pos[0] + camX;  // Usa camX, camY, camZ para controlar a rotação pelo rato
+	cams[2].camPos[0] = boat.pos[0] + camX;
 	cams[2].camPos[1] = boat.pos[1] + camY + height;
 	cams[2].camPos[2] = boat.pos[2] + camZ;
 
@@ -496,11 +511,11 @@ void animation(int value) {
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
 
-
 	updateCreatures(deltaT, MAX_RADIUS);
 
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
+
 
 void refresh(int value)
 {
@@ -930,19 +945,12 @@ void renderScene(void) {
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
 
-	// set the camera using a function similar to gluLookAt
-	//lookAt(camX, camY, camZ, 0,0,0, 0,1,0);
 	if (activeCam == 3) lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
-
-	/*printf("Camera Position: x: %.2f, y: %.2f, z: %.2f\n",
-		cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
-
-	printf("Camera Target: x: %.2f, y: %.2f, z: %.2f\n",
-		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2]); */
 
 	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
 		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
 		0, 1, 0);
+
 
 	glGetIntegerv(GL_VIEWPORT, m_view);
 
@@ -956,41 +964,45 @@ void renderScene(void) {
 		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
 	}
 
-	glDisable(GL_CULL_FACE);
+	//glDisable(GL_CULL_FACE);
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
 
-	//Enable/disable
+	// Enable/disable fog
 	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
 
-	float res[4];
-	//multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
-	//glUniform4fv(lPos_uniformId, 1, res);multMatrixPoint(VIEW, lightPos,res);   //lightPos definido em World Coord so is converted to eye space
-	//glUniform4fv(lPos_uniformId, 1, res);
+	// Initialize the directional light
+	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "directionalLightstate"), directionalLightState);
+
+	// Initialize the point lights
+	for (int i = 0; i < 6; ++i) {
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("pointLight" + std::to_string(i) + "state").c_str()), pointLightState);
+	}
+
+	// Initialize the spotlights
+	for (int i = 0; i < 2; ++i) {
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("spotLight" + std::to_string(i) + "state").c_str()), spotLightState);
+	}
 
 	// Para pointlights
-	multMatrixPoint(VIEW, lights[0].position, res);
-	glUniform4fv(lights[0].location, 1, res);
-	multMatrixPoint(VIEW, lights[1].position, res);
-	glUniform4fv(lights[1].location, 1, res);
-	multMatrixPoint(VIEW, lights[2].position, res);
-	glUniform4fv(lights[2].location, 1, res);
-	multMatrixPoint(VIEW, lights[3].position, res);
-	glUniform4fv(lights[3].location, 1, res);
-	multMatrixPoint(VIEW, lights[4].position, res);
-	glUniform4fv(lights[4].location, 1, res);
-	multMatrixPoint(VIEW, lights[5].position, res);
-	glUniform4fv(lights[5].location, 1, res);
-	// Para directional light
+	float res[4];
+	for (int i = 0; i < 6; ++i) {
+		multMatrixPoint(VIEW, lights[i].position, res);
+		glUniform4fv(lights[i].location, 1, res);
+	}
+
+	// Para a luz direcional
 	multMatrixPoint(VIEW, lights[6].position, res);
 	glUniform4fv(lights[6].location, 1, res);
-	// Para Spotlights
+
+	// Para spotlights
 	multMatrixPoint(VIEW, lights[7].position, res);
 	glUniform4fv(lights[7].location, 1, res);
 	multMatrixPoint(VIEW, lights[8].position, res);
 	glUniform4fv(lights[8].location, 1, res);
 
+	// Enviar os estados das luzes
 	glUniform1iv(lightStatesLoc, 9, states);
 
 	//Associar os Texture Units aos Objects Texture
@@ -1148,30 +1160,36 @@ void processKeys(unsigned char key, int xx, int yy)
 		glutLeaveMainLoop();
 		break;
 
-	case 'c':
-		printf("Camera Spherical Coordinates (%f, %f, %f)\n", alpha, beta, r);
+	case 'N': case 'n':	
+		// Toggle directional light
+		glUseProgram(shader.getProgramIndex());
+		directionalLightState = !directionalLightState;
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "directionalLightstate"), directionalLightState);
+		printf("Directional Light: %s\n", directionalLightState ? "Off" : "On");
 		break;
+
+	case 'C': case 'c':
+		// Toggle all point lights
+		glUseProgram(shader.getProgramIndex());
+		pointLightState = !pointLightState;
+		for (int i = 0; i < 6; ++i) {
+			glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("pointLight" + std::to_string(i) + "state").c_str()), pointLightState);
+		}
+		printf("Point Lights: %s\n", pointLightState ? "Off" : "On");
+		break;
+
+	case 'H': case 'h':
+		// Toggle all spot lights
+		glUseProgram(shader.getProgramIndex());
+		spotLightState = !spotLightState;
+		for (int i = 0; i < 2; ++i) {
+			glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("spotLight" + std::to_string(i) + "state").c_str()), spotLightState);
+		}
+		printf("Spot Lights: %s\n", spotLightState ? "Off" : "On");
+		break;
+
 	case 'm': glEnable(GL_MULTISAMPLE); break;
-	case 'n': glDisable(GL_MULTISAMPLE); break;
-	// Toggle light states
-	case '5': // Toggle lights 0 to 5
-		for (int i = 0; i <= 5; ++i) {
-			lights[i].enabled = ~lights[i].enabled; // Toggle enabled state
-			printf("Light %d enabled: %d\n", i, lights[i].enabled);
-		}
-		break;
-
-	case '6': // Toggle lights 6 to 7
-		for (int i = 6; i <= 7; ++i) {
-			lights[i].enabled = ~lights[i].enabled; // Toggle enabled state
-			printf("Light %d enabled: %d\n", i, lights[i].enabled);
-		}
-		break;
-
-	case '8': // Toggle light 8
-		lights[8].enabled = ~lights[8].enabled; // Toggle enabled state
-		printf("Light 8 enabled: %d\n", lights[8].enabled);
-		break;
+	
 	}
 }
 
@@ -1733,13 +1751,6 @@ int main(int argc, char** argv) {
 	lights.push_back(Light(positions[6], colors[6], states[6])); // Directional light
 	lights.push_back(Spotlight(positions[7], direction[0], cutOffAngle[0], intensity[0], states[7])); // Spotlight 1
 	lights.push_back(Spotlight(positions[8], direction[1], cutOffAngle[1], intensity[1], states[8])); // Spotlight 2
-	//lights[0] = PointLight(positions[0], colors[0]);
-
-	for (int i = 0; i < 6; i++) {
-		for (int j = 0; j < 4; j++) {
-			printf("Active PointLight: %f\n", lights[i].position[j]);
-		}
-	}
 
 	if (!setupShaders())
 		return(1);

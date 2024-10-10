@@ -16,10 +16,13 @@
 #include <sstream>
 #include <string>
 #include <cstdlib>
+#include <iomanip>  // Para o setprecision
+
+// Library effective with Windows
+#include <windows.h>
 
 // include GLEW to access OpenGL 3.3 functions
 #include <GL/glew.h>
-
 
 // GLUT is the toolkit to interface with the OS
 #include <GL/freeglut.h>
@@ -45,6 +48,11 @@
 #define NUM_BUOYS 5
 #define NUM_CREATURES 8
 #define MAX_RADIUS 25.0
+
+#define GAME_ACTIVE 2
+#define GAME_PAUSED 1
+#define GAME_OVER 0
+
 
 using namespace std;
 
@@ -128,11 +136,6 @@ public:
 	int type = 0; //0 - perspective , 1 - ortho
 };
 
-// global declaration 
-Camera cams[4];
-int activeCam = 0;
-
-
 // Boat ---------------
 class Boat {
 public:
@@ -141,10 +144,6 @@ public:
 	float pos[3];
 	float angle;
 };
-
-Boat boat;
-float deltaT = 0.05;
-float decaySpeed = 0.99;
 
 // Water creatures
 class WaterCreature {
@@ -159,8 +158,13 @@ public:
 	WaterCreature() : timeElapsed(0.0f) {};
 };
 
-float deltaTimeElapsed = 1.0f / 60.0f;	// for 60 FPS
-
+// global declarations
+Camera cams[4];
+int activeCam = 0;
+Boat boat;
+float deltaT = 0.05;	
+float decaySpeed = 0.99;
+float deltaTimeElapsed = 1.0f / 60.0f;	// velocity increase time for water creatures (for 60 FPS)
 vector<struct WaterCreature> waterCreatures;
 
 struct Vec3 {
@@ -187,7 +191,6 @@ struct Sphere {
 	Vec3 center;
 	float radius;
 };
-
 
 // Define buoy spheres
 Sphere buoySpheres[5] = {
@@ -272,8 +275,6 @@ public:
 
 };
 
-
-
 int states[9] = { 0,1,0,1,0,0,0,1,1 };
 
 float positions[9][4] = {
@@ -308,10 +309,20 @@ float intensity[2] = { 50.0f, 50.f };
 
 std::vector<Light> lights;
 
-
-
 //endof setup of pointlights
 
+// Game setup
+class Game
+{
+public:
+	unsigned int lives;
+	float playTime;
+	int state;
+
+	Game() : lives(5), playTime(0.0), state(GAME_ACTIVE) {};
+};
+
+Game boatGame;
 
 // Fun��o para gerar um valor aleat�rio entre min e max
 float randomFloat(float min, float max) {
@@ -343,6 +354,7 @@ void initCreature(WaterCreature& creature, float maxRadius) {
 }
 
 Sphere creatureSpheres[NUM_CREATURES];
+
 // Inicializa N criaturas com posi��es aleat�rias
 void initializeCreatures(int numCreatures, float maxRadius) {
 	waterCreatures.clear();
@@ -437,7 +449,6 @@ bool checkCollision(const Sphere& a, const Sphere& b) {
 }
 
 
-
 void timer(int value)
 {
 	std::ostringstream oss;
@@ -449,8 +460,14 @@ void timer(int value)
 	glutTimerFunc(1000, timer, 0);
 }
 
+float lastCollisionTime = 0.0f; // Tempo da última colisão com uma criatura
+float invulnerabilityTime = 1.0f; // Tempo de invulnerabilidade em segundos
 
 void animation(int value) {
+	if (boatGame.state != GAME_ACTIVE) {
+		return;
+	}
+
 	boat.direction[0] = sin(boat.angle * M_PI / 180);
 	boat.direction[1] = 0;
 	boat.direction[2] = cos(boat.angle * M_PI / 180);
@@ -484,12 +501,28 @@ void animation(int value) {
 	// Verificar colisões com criaturas aquáticas
 	for (int i = 0; i < waterCreatures.size(); ++i) {
 		if (checkCollision(boatSphere, creatureSpheres[i])) {
-			// posição do barco para a posição inicial
-			boat.pos[0] = 0.0f;
-			boat.pos[1] = 0.0f;
-			boat.pos[2] = 0.0f;
-			printf("Colidiu com uma criatura!\n");
-			break;
+
+			// Obter o tempo atual (tempo total de jogo)
+			float currentTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // tempo em segundos
+
+			// Verifica se passou o tempo de invulnerabilidade desde a última colisão
+			if (currentTime - lastCollisionTime >= invulnerabilityTime) {
+				// Atualiza o tempo da última colisão
+				lastCollisionTime = currentTime;
+
+				// Reduz uma vida
+				boatGame.lives--;
+				printf("PLAYER'S LIFE: %d\n", boatGame.lives);
+
+				// Verifica se o jogador perdeu todas as vidas (Game over)
+				if (boatGame.lives == 0) {
+					boatGame.state = GAME_OVER;
+				}
+
+				printf("Colidiu com uma criatura!\n");
+			}
+
+			break; // sai do loop após a colisão
 		}
 	}
 
@@ -512,6 +545,8 @@ void animation(int value) {
 	cams[2].camTarget[2] = boat.pos[2];
 
 	updateCreatures(deltaT, MAX_RADIUS);
+
+	boatGame.playTime += deltaTimeElapsed;
 
 	glutTimerFunc(1 / deltaT, animation, 0);
 }
@@ -931,8 +966,61 @@ void renderRows(GLint loc) {
 	popMatrix(MODEL);
 }
 
+void renderPauseScreen() {
+	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
+	glDisable(GL_DEPTH_TEST);
 
+	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	pushMatrix(MODEL);
+	loadIdentity(MODEL);
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+	pushMatrix(VIEW);
+	loadIdentity(VIEW);
+
+	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+	RenderText(shaderText, "Press P to continue", 25.0f, 25.0f, 0.5f, 0.5f, 0.8f, 0.2f);
+	RenderText(shaderText, "PAUSE", 600.0f, 440.0f, 1.0f, 0.3, 0.7f, 0.9f);
+
+	popMatrix(PROJECTION);
+	popMatrix(VIEW);
+	popMatrix(MODEL);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+}
+
+void renderGameOverScreen() {
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	pushMatrix(MODEL);
+	loadIdentity(MODEL);
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+	pushMatrix(VIEW);
+	loadIdentity(VIEW);
+
+	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+	RenderText(shaderText, "GAME OVER", 550.0f, 440.0f, 1.0f, 0.8f, 0.3f, 0.1f);
+	RenderText(shaderText, "Press 'R' to restart", 550.0f, 380.0f, 0.6f, 0.6f, 0.6f, 0.6f);
+
+	popMatrix(PROJECTION);
+	popMatrix(VIEW);
+	popMatrix(MODEL);
+
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+}
 
 void renderScene(void) {
 
@@ -964,7 +1052,7 @@ void renderScene(void) {
 		ortho(ratio * -25, ratio * 25, -25, 25, 0.1, 100);
 	}
 
-	//glDisable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 
 	// use our shader
 	glUseProgram(shader.getProgramIndex());
@@ -1079,24 +1167,41 @@ void renderScene(void) {
 	int m_viewport[4];
 	glGetIntegerv(GL_VIEWPORT, m_viewport);
 
-	//viewer at origin looking down at  negative z direction
-	pushMatrix(MODEL);
-	loadIdentity(MODEL);
-	pushMatrix(PROJECTION);
-	loadIdentity(PROJECTION);
-	pushMatrix(VIEW);
-	loadIdentity(VIEW);
-	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
-	RenderText(shaderText, "This is a sample text", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
-	RenderText(shaderText, "AVT Light and Text Rendering Demo", 440.0f, 570.0f, 0.5f, 0.3, 0.7f, 0.9f);
-	popMatrix(PROJECTION);
-	popMatrix(VIEW);
-	popMatrix(MODEL);
-	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
+	if (boatGame.state == GAME_ACTIVE) {
+		stringstream ss, oss;
+		
+		ss << boatGame.lives;
+
+		// Formatar o tempo com duas casas decimais
+		oss << std::fixed << setprecision(2) << boatGame.playTime;
+
+		pushMatrix(MODEL);
+		loadIdentity(MODEL);
+		pushMatrix(PROJECTION);
+		loadIdentity(PROJECTION);
+		pushMatrix(VIEW);
+		loadIdentity(VIEW);
+
+		ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+		RenderText(shaderText, "Lives: " + ss.str(), 25.0f, 680.0f, 0.5f, 0.8f, 0.4f, 0.1f);
+		RenderText(shaderText, "Time: " + oss.str(), 25.0f, 640.0f, 0.5f, 0.8f, 0.4f, 0.1f);
+
+		popMatrix(PROJECTION);
+		popMatrix(VIEW);
+		popMatrix(MODEL);
+		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_BLEND);
+	}
+	else if (boatGame.state == GAME_PAUSED) {
+		renderPauseScreen();
+	}
+	else if (boatGame.state == GAME_OVER) {
+		renderGameOverScreen();
+	}
 
 	glutSwapBuffers();
 }
+
 
 // ------------------------------------------------------------
 //
@@ -1124,12 +1229,12 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Active Camera: %d\n", activeCam);
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
 		break;
+
 	case '4':
 		activeCam = 3;
 		printf("Active Camera: %d\n", activeCam);
 		printf("Camera 3 Position: (%f, %f, %f)\n", cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2]);
 		break;
-
 
 	case 'F': case 'f':
 		printf("fog ativado: %d\n", fogEnabled);
@@ -1137,7 +1242,6 @@ void processKeys(unsigned char key, int xx, int yy)
 		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
 		break;
 		break;
-
 
 	case 'a':
 		boat.angle += 5.0f;
@@ -1168,12 +1272,13 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Directional Light: %s\n", directionalLightState ? "Off" : "On");
 		break;
 
-	case 'C': case 'c':
-		// Toggle all point lights
-		glUseProgram(shader.getProgramIndex());
-		pointLightState = !pointLightState;
-		for (int i = 0; i < 6; ++i) {
-			glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("pointLight" + std::to_string(i) + "state").c_str()), pointLightState);
+	case 'm': glEnable(GL_MULTISAMPLE); break;
+
+	// Toggle light states
+	case '5': // Toggle lights 0 to 5
+		for (int i = 0; i <= 5; ++i) {
+			lights[i].enabled = ~lights[i].enabled; // Toggle enabled state
+			printf("Light %d enabled: %d\n", i, lights[i].enabled);
 		}
 		printf("Point Lights: %s\n", pointLightState ? "Off" : "On");
 		break;
@@ -1188,8 +1293,37 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Spot Lights: %s\n", spotLightState ? "Off" : "On");
 		break;
 
-	case 'm': glEnable(GL_MULTISAMPLE); break;
-	
+	case '8': // Toggle light 8
+		lights[8].enabled = ~lights[8].enabled; // Toggle enabled state
+		printf("Light 8 enabled: %d\n", lights[8].enabled);
+		break;
+
+	case 'p':
+		// Alterna entre pausado e ativo
+		if (boatGame.state == GAME_ACTIVE) {
+			boatGame.state = GAME_PAUSED;
+		}
+		else if (boatGame.state == GAME_PAUSED) {
+			boatGame.state = GAME_ACTIVE;
+
+			// Reagendar a animação quando o jogo for retomado
+			glutTimerFunc(1 / deltaT, animation, 0);
+		}
+		break;
+
+	case 'r':
+		boatGame.lives = 5;
+		boat.pos[0] = 0.0f;
+		boat.pos[1] = 0.0f;
+		boat.pos[2] = 0.0f;
+		boat.speed = 0.0f;
+		boat.angle = 0.0f;
+		
+		// Reiniciar jogo
+		boatGame.playTime = 0.0;
+		boatGame.state = GAME_ACTIVE;
+		glutTimerFunc(1 / deltaT, animation, 0);
+		break;
 	}
 }
 
@@ -1713,7 +1847,6 @@ int main(int argc, char** argv) {
 	glutInitWindowSize(WinX, WinY);
 	WindowHandle = glutCreateWindow(CAPTION);
 
-
 	//  Callback Registration
 	glutDisplayFunc(renderScene);
 	glutReshapeFunc(changeSize);
@@ -1727,7 +1860,6 @@ int main(int argc, char** argv) {
 	glutMouseFunc(processMouseButtons);
 	glutMotionFunc(processMouseMotion);
 	glutMouseWheelFunc(mouseWheel);
-
 
 	//	return from main loop
 	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);

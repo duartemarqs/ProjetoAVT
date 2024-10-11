@@ -145,6 +145,7 @@ public:
 	float angle;
 };
 
+
 // Water creatures
 class WaterCreature {
 public:
@@ -432,7 +433,7 @@ void updateSpotlights() {
 	lights[8].position[1] = boatPosY + 2.0f;
 	lights[8].position[2] = boatPosZ - distanceFromBoat * sin(angleRad);
 
-	printf("Posição da SpotLigth7: x = %f, y = %f, z = %f\n", lights[7].position[0], lights[7].position[1], lights[7].position[2]);
+	printf("Posição do barco: x = %f, y = %f, z = %f\n", boat.pos[0], boat.pos[1], boat.pos[2]);
 
 	lights[7].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight0location");
 	lights[8].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight1location");
@@ -1104,8 +1105,6 @@ void renderScene(void) {
 	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
 
 	//Indicar aos dois samplers do GLSL quais os Texture Units a serem usados
-	/*
-	*/
 	glUniform1i(tex_loc, 0);
 	glUniform1i(tex_loc1, 1);
 
@@ -1156,6 +1155,7 @@ void renderScene(void) {
 	renderTree(loc);
 	renderBoat(loc);
 	renderRows(loc);
+
 	renderCreatures(loc);
 	renderBalls(loc);
 
@@ -1274,14 +1274,6 @@ void processKeys(unsigned char key, int xx, int yy)
 
 	case 'm': glEnable(GL_MULTISAMPLE); break;
 
-	// Toggle light states
-	case '5': // Toggle lights 0 to 5
-		for (int i = 0; i <= 5; ++i) {
-			lights[i].enabled = ~lights[i].enabled; // Toggle enabled state
-			printf("Light %d enabled: %d\n", i, lights[i].enabled);
-		}
-		printf("Point Lights: %s\n", pointLightState ? "Off" : "On");
-		break;
 
 	case 'H': case 'h':
 		// Toggle all spot lights
@@ -1291,11 +1283,6 @@ void processKeys(unsigned char key, int xx, int yy)
 			glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("spotLight" + std::to_string(i) + "state").c_str()), spotLightState);
 		}
 		printf("Spot Lights: %s\n", spotLightState ? "Off" : "On");
-		break;
-
-	case '8': // Toggle light 8
-		lights[8].enabled = ~lights[8].enabled; // Toggle enabled state
-		printf("Light 8 enabled: %d\n", lights[8].enabled);
 		break;
 
 	case 'c': // Toggle all point lights
@@ -1693,49 +1680,6 @@ MyMesh createGlassBalls(float radius, int divisions) {
 	return ballMesh;
 }
 
-// ------------------------------------------------------------
-//
-// Model loading and OpenGL setup
-//
-
-//void setupPointLights() {
-//	float positions[NUM_POINT_LIGHTS][4] = {
-//		{ -35.0f, 4.0f, -35.0f, 1.0f },
-//		{ 40.0f, 7.0f, 40.0f, 1.0f },
-//		{ 2.0f, 10.0f, 2.0f, 1.0f },
-//		{ 0.0f, 4.0f, 15.0f, 1.0f },
-//		{ 17.0f, -8.0f, 17.0f, 1.0f },
-//		{ 1.0f, -2.0f, 1.0f, 1.0f }
-//	};
-//
-//	float colors[6][4] = {
-//		{0.3f, 0.7f, 0.2f, 1.0f},  // Greenish
-//		{0.8f, 0.1f, 0.3f, 1.0f},  // Reddish
-//		{0.2f, 0.4f, 0.8f, 1.0f},  // Blueish
-//		{0.9f, 0.8f, 0.1f, 1.0f},  // Yellowish
-//		{0.5f, 0.2f, 0.6f, 1.0f},  // Purplish
-//		{0.1f, 0.9f, 0.7f, 1.0f}   // Tealish
-//	};
-//
-//	pointLights.push_back(PointLight(positions[0], colors[0]));
-//	pointLights.push_back(PointLight(positions[1], colors[1]));
-//	pointLights.push_back(PointLight(positions[2], colors[2]));
-//	pointLights.push_back(PointLight(positions[3], colors[3]));
-//	pointLights.push_back(PointLight(positions[4], colors[4]));
-//	pointLights.push_back(PointLight(positions[5], colors[5]));
-//}
-//
-//void sendPointLightData(GLuint shaderProgram) {
-//	for (int i = 0; i < pointLights.size(); i++) {
-//		std::string index = std::to_string(i);
-//		GLint posLoc = glGetUniformLocation(shaderProgram, ("pointLights[" + index + "].position").c_str());
-//		GLint colLoc = glGetUniformLocation(shaderProgram, ("pointLights[" + index + "].color").c_str());
-//
-//		// Directly passing arrays of floats
-//		glUniform4fv(posLoc, 1, pointLights[i].position);
-//		glUniform4fv(colLoc, 1, pointLights[i].color);
-//	}
-//}
 
 void init()
 {
@@ -1775,9 +1719,13 @@ void init()
 	camZ = r * cos(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
 	camY = r * sin(beta * 3.14f / 180.0f);
 
+	//Boat on the start position
+	boat.pos[0] = 20.50f;
+	boat.pos[1] = 0.0f;
+	boat.pos[2] = -17.86f;
+
+
 	// Texture Object definition
-	/*
-	*/
 	glGenTextures(2, TextureArray);
 	Texture2D_Loader(TextureArray, "river.jpg", 0);
 	Texture2D_Loader(TextureArray, "wrinkled-paper.jpg", 1);
@@ -1820,11 +1768,6 @@ void init()
 
 	// Create creatures that swim
 	amesh = createWaterCreatures();
-
-	// Create pointlights
-	/*setupPointLights();
-	sendPointLightData(shader.getProgramIndex());*/
-
 
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);

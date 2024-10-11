@@ -1298,6 +1298,14 @@ void processKeys(unsigned char key, int xx, int yy)
 		printf("Light 8 enabled: %d\n", lights[8].enabled);
 		break;
 
+	case 'c': // Toggle all point lights
+		glUseProgram(shader.getProgramIndex());
+		pointLightState = !pointLightState;
+		for (int i = 0; i < 6; ++i) {
+			glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("pointLight" + std::to_string(i) + "state").c_str()), pointLightState);
+		}
+		break;
+
 	case 'p':
 		// Alterna entre pausado e ativo
 		if (boatGame.state == GAME_ACTIVE) {

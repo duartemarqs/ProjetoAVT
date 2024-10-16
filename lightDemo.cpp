@@ -29,6 +29,10 @@
 
 #include <IL/il.h>
 
+// assimp include files. These three are usually needed.
+#include "assimp/Importer.hpp"	//OO version Header!
+#include "assimp/scene.h"
+#include "meshFromAssimp.h"
 
 // Use Very Simple Libs
 #include "VSShaderlib.h"
@@ -39,6 +43,7 @@
 
 #include "avtFreeType.h"
 
+// Macro definitions
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #define NUM_POINT_LIGHTS 6
@@ -53,11 +58,11 @@
 #define GAME_ACTIVE 2
 #define GAME_PAUSED 1
 #define GAME_OVER 0
+#define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
 
 
 using namespace std;
 
-#define CAPTION "AVT Demo: Phong Shading and Text rendered with FreeType"
 int WindowHandle = 0;
 int WinX = 1024, WinY = 768;
 
@@ -83,6 +88,7 @@ vector<struct MyMesh> boatMeshes;
 vector<struct MyMesh> rowMeshes;
 vector<struct MyMesh> ballMeshes;
 vector<struct MyMesh> finishLineMeshes;
+vector<struct MyMesh> assimpMeshes;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -161,14 +167,16 @@ public:
 	WaterCreature() : timeElapsed(0.0f) {};
 };
 
-// global declarations
+// Global variables
 Camera cams[4];
 int activeCam = 0;
+
 Boat boat;
+vector<struct WaterCreature> waterCreatures;
+
 float deltaT = 0.05;	
 float decaySpeed = 0.99;
 float deltaTimeElapsed = 1.0f / 60.0f;	// velocity increase time for water creatures (for 60 FPS)
-vector<struct WaterCreature> waterCreatures;
 
 struct Vec3 {
 	float x, y, z;
@@ -215,7 +223,7 @@ public:
 	//float directionalLightPos[4]{ 1.0f, 1000.0f, 1.0f, 0.0f };
 	// random positions for lights
 	float position[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	float direction[4];
+	float direction[3];
 	float color[4];
 	GLint location = 0;
 	int enabled = 1;
@@ -250,28 +258,28 @@ public:
 	}
 
 	// Setter method for direction
-	void setDirection(const float newDirection[4]) {
+	void setDirection(const float newDirection[3]) {
 		// Use a loop to copy each element
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 2; i++) {
 			direction[i] = newDirection[i];
 		}
-		direction[3] = 0.0f;
+		// direction[3] = 0.0f;
 	}
 
 };
 
 class Spotlight : public Light {
 public:
-	float direction[4];
+	float direction[3];
 	//float position[4];
 	float cutOffAngle = 0.0;
 	float intensity = 0.0;
 
 
-	Spotlight(const float position[4], float direction[4], float cutOffAngle, float intensity, int enabled)
+	Spotlight(const float position[4], float direction[3], float cutOffAngle, float intensity, int enabled)
 		: Light(position, defaultColor, enabled)  // Call the Light constructor with default white color
 	{
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 3; ++i) {
 			this->direction[i] = direction[i];
 		}
 
@@ -309,7 +317,7 @@ float colors[9][4] = {
 	{0.1f, 0.9f, 0.7f, 1.0f},   // Tealish
 };
 
-float direction[2][4] = { { 1.0f, -1.0f, 0.0f, 0.0f } , { 2.0f, -1.0f, 0.0f, 0.0f } };
+float direction[2][3] = { { 1.0f, -1.0f, 0.0f } , { 2.0f, -1.0f, 0.0f } };
 float cutOffAngle[2] = { 0.5f, 0.5 };
 float intensity[2] = { 50.0f, 50.f };
 
@@ -329,6 +337,29 @@ public:
 };
 
 Game boatGame;
+
+/* IMPORTANT: Use the next data to make this Assimp demo to work*/
+
+// Create an instance of the Importer class
+Assimp::Importer importer;
+
+// the global Assimp scene object
+const aiScene* scene;
+
+// scale factor for the Assimp model to fit in the window
+float scaleFactor;
+
+char model_dir[50];  //initialized by the user input at the console
+
+GLint normalMap_loc;
+GLint specularMap_loc;
+GLint diffMapCount_loc;
+
+// By default if there is a normal map then bump effect is implemented. press key "b" to enable/disable normal mapping 
+bool normalMapKey = TRUE;
+
+/* Assimp (end) */
+
 
 // Fun��o para gerar um valor aleat�rio entre min e max
 float randomFloat(float min, float max) {
@@ -954,7 +985,6 @@ void renderBoat(GLint loc) {
 	popMatrix(MODEL);
 }
 
-
 void renderRows(GLint loc) {
 	int meshId = 0;
 	float oarMovementAngle = 0.0f;
@@ -1016,6 +1046,112 @@ void renderRows(GLint loc) {
 		meshId++;
 	} while (meshId < rowMeshes.size());
 
+	popMatrix(MODEL);
+}
+
+// Recursive render of the Assimp Scene Graph
+void aiRecursiveRender(const aiNode* node, vector<struct MyMesh>& myMeshes, GLuint*& textureIds)
+{
+	GLint loc;
+
+	// Get node transformation matrix
+	aiMatrix4x4 m = node->mTransformation;
+	// OpenGL matrices are column major
+	m.Transpose();
+
+	// save model matrix and apply node transformation
+	pushMatrix(MODEL);
+
+	float aux[16];
+	memcpy(aux, &m, sizeof(float) * 16);
+	multMatrix(MODEL, aux);
+
+
+	// draw all meshes assigned to this node
+	for (unsigned int n = 0; n < node->mNumMeshes; ++n) {
+
+		// send the material
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, assimpMeshes[node->mMeshes[n]].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, assimpMeshes[node->mMeshes[n]].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, assimpMeshes[node->mMeshes[n]].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.emissive");
+		glUniform4fv(loc, 1, assimpMeshes[node->mMeshes[n]].mat.emissive);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, assimpMeshes[node->mMeshes[n]].mat.shininess);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.texCount");
+		glUniform1i(loc, assimpMeshes[node->mMeshes[n]].mat.texCount);
+
+		unsigned int  diffMapCount = 0;  // Read 2 diffuse textures
+
+		// Devido ao fragment shader suporta 2 texturas difusas simultaneas, 1 especular e 1 normal map
+		glUniform1i(normalMap_loc, false);   // GLSL normalMap variable initialized to 0
+		glUniform1i(specularMap_loc, false);
+		glUniform1ui(diffMapCount_loc, 0);
+
+		if (assimpMeshes[node->mMeshes[n]].mat.texCount != 0)
+			for (unsigned int i = 0; i < assimpMeshes[node->mMeshes[n]].mat.texCount; ++i) {
+
+				// Activate a TU with a Texture Object
+				GLuint TU = assimpMeshes[node->mMeshes[n]].texUnits[i];
+				glActiveTexture(GL_TEXTURE0 + TU);
+				glBindTexture(GL_TEXTURE_2D, textureIds[TU]);
+
+				if (assimpMeshes[node->mMeshes[n]].texTypes[i] == DIFFUSE) {
+					if (diffMapCount == 0) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff");
+						glUniform1i(loc, TU);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else if (diffMapCount == 1) {
+						diffMapCount++;
+						loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitDiff1");
+						glUniform1i(loc, TU);
+						glUniform1ui(diffMapCount_loc, diffMapCount);
+					}
+					else printf("Only supports a Material with a maximum of 2 diffuse textures\n");
+				}
+				else if (assimpMeshes[node->mMeshes[n]].texTypes[i] == SPECULAR) {
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitSpec");
+					glUniform1i(loc, TU);
+					glUniform1i(specularMap_loc, true);
+				}
+				else if (assimpMeshes[node->mMeshes[n]].texTypes[i] == NORMALS) { //Normal map
+					loc = glGetUniformLocation(shader.getProgramIndex(), "texUnitNormalMap");
+					if (normalMapKey)
+						glUniform1i(normalMap_loc, normalMapKey);
+					glUniform1i(loc, TU);
+
+				}
+				else printf("Texture Map not supported\n");
+			}
+
+		// send matrices to OGL
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		// bind VAO
+		glBindVertexArray(assimpMeshes[node->mMeshes[n]].vao);
+
+		if (!shader.isProgramValid()) {
+			printf("Program Not Valid!\n");
+			exit(1);
+		}
+		// draw
+		glDrawElements(myMeshes[node->mMeshes[n]].type, assimpMeshes[node->mMeshes[n]].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+
+	// draw all children
+	for (unsigned int n = 0; n < node->mNumChildren; ++n) {
+		aiRecursiveRender(node->mChildren[n], assimpMeshes, textureIds);
+	}
 	popMatrix(MODEL);
 }
 
@@ -1394,9 +1530,9 @@ void processKeys(unsigned char key, int xx, int yy)
 
 	case 'r':
 		boatGame.lives = 5;
-		boat.pos[0] = 0.0f;
+		boat.pos[0] = 20.50f;
 		boat.pos[1] = 0.0f;
-		boat.pos[2] = 0.0f;
+		boat.pos[2] = -17.86f;
 		boat.speed = 0.0f;
 		boat.angle = 0.0f;
 		
@@ -1830,10 +1966,9 @@ void init()
 	boat.pos[1] = 0.0f;
 	boat.pos[2] = -17.86f;
 
-
 	// Texture Object definition
 	glGenTextures(2, TextureArray);
-	Texture2D_Loader(TextureArray, "river.jpg", 0);
+	Texture2D_Loader(TextureArray, "just_water.jfif", 0);
 	Texture2D_Loader(TextureArray, "wrinkled-paper.jpg", 1);
 
 	float amb[] = { 0.2f, 0.15f, 0.1f, 1.0f };

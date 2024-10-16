@@ -162,6 +162,7 @@
     <ClCompile Include="AVTmathLib.cpp" />
     <ClCompile Include="basic_geometry.cpp" />
     <ClCompile Include="lightDemo.cpp" />
+    <ClCompile Include="meshFromAssimp.cpp" />
     <ClCompile Include="Texture_Loader.cpp" />
     <ClCompile Include="vsShaderLib.cpp" />
   </ItemGroup>
@@ -171,6 +172,7 @@
     <ClInclude Include="cube.h" />
     <ClInclude Include="ft2build.h" />
     <ClInclude Include="geometry.h" />
+    <ClInclude Include="meshFromAssimp.h" />
     <ClInclude Include="Texture_Loader.h" />
     <ClInclude Include="VertexAttrDef.h" />
     <ClInclude Include="vsShaderLib.h" />
@@ -183,6 +185,7 @@
     <None Include="shaders\text.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="just_water.jfif" />
     <Image Include="river.jpg" />
     <Image Include="wrinkled-paper.jpg" />
   </ItemGroup>

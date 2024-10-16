@@ -49,6 +49,7 @@
 #define NUM_CREATURES 8
 #define MAX_RADIUS 25.0
 
+#define GAME_WIN 3
 #define GAME_ACTIVE 2
 #define GAME_PAUSED 1
 #define GAME_OVER 0
@@ -81,6 +82,7 @@ vector<struct MyMesh> treeMeshes;
 vector<struct MyMesh> boatMeshes;
 vector<struct MyMesh> rowMeshes;
 vector<struct MyMesh> ballMeshes;
+vector<struct MyMesh> finishLineMeshes;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -201,6 +203,9 @@ Sphere buoySpheres[5] = {
 	{ { 6.0f, 0.2f, 5.0f }, 1.0f },  // buoy 4
 	{ { 22.0f, 0.2f, -1.0f }, 1.0f } // buoy 5
 };
+
+Sphere finishLineSphere = { { -17.0f, 0.2f, 0.0f }, 2.0f }; // Centro entre os portões, raio ajustado
+
 
 const float defaultColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
@@ -464,6 +469,8 @@ void timer(int value)
 float lastCollisionTime = 0.0f; // Tempo da última colisão com uma criatura
 float invulnerabilityTime = 1.0f; // Tempo de invulnerabilidade em segundos
 
+
+
 void animation(int value) {
 	if (boatGame.state != GAME_ACTIVE) {
 		return;
@@ -526,6 +533,15 @@ void animation(int value) {
 			break; // sai do loop após a colisão
 		}
 	}
+
+
+	// Verificar colisão com a meta
+	if (checkCollision(boatSphere, finishLineSphere)) {
+		std::cout << "Barco alcançou a linha de chegada!" << std::endl;
+		boatGame.state = GAME_WIN;  
+		boat.speed = 0.0f; 
+	}
+
 
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 
@@ -745,8 +761,6 @@ void renderTree(GLint loc) {
 	pushMatrix(MODEL);
 
 	do {
-		// printf("Dentro do while, meshId = %d\n", meshId);
-		// send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, treeMeshes[meshId].mat.ambient);
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
@@ -764,8 +778,6 @@ void renderTree(GLint loc) {
 		else if (meshId == 1) {	// pyramid
 			translate(MODEL, -4.0, 3.5, -2.0);
 		}
-		/*
-		*/
 
 		// send matrices to OGL
 		computeDerivedMatrix(PROJ_VIEW_MODEL);
@@ -792,7 +804,6 @@ void renderHouse(GLint loc) {
 	pushMatrix(MODEL);
 
 	do {
-		// printf("Dentro do while, meshId = %d\n", meshId);
 		// send the material
 		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
 		glUniform4fv(loc, 1, houseMeshes[meshId].mat.ambient);
@@ -808,8 +819,7 @@ void renderHouse(GLint loc) {
 		if (meshId == 0) { // cube
 			translate(MODEL, 2.0, 0.0, 1.4);
 		}
-		/*
-		*/
+
 		else if (meshId == 1) {	// pyramid
 			translate(MODEL, 2.5, 1.0, 1.9);
 			rotate(MODEL, -45, 0, 1, 0);
@@ -835,15 +845,57 @@ void renderHouse(GLint loc) {
 	popMatrix(MODEL);
 }
 
+
+void renderFinishLine(GLint loc) {
+	int meshId = 0;
+	pushMatrix(MODEL);
+
+	do {
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+		glUniform4fv(loc, 1, finishLineMeshes[meshId].mat.ambient);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+		glUniform4fv(loc, 1, finishLineMeshes[meshId].mat.diffuse);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+		glUniform4fv(loc, 1, finishLineMeshes[meshId].mat.specular);
+		loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+		glUniform1f(loc, finishLineMeshes[meshId].mat.shininess);
+		pushMatrix(MODEL);
+
+		// Transformações
+		if (meshId == 0) { // Primeiro portão
+			translate(MODEL, -13.0, 0.0, 5.2f); 
+			rotate(MODEL, -60.0f, 0.0f, 1.0f, 0.0f);
+		}
+		else if (meshId == 1) { // Segundo portão
+			translate(MODEL, -12.5f, 0.0, -2.5f); 
+			rotate(MODEL, 60.0f, 0.0f, 1.0f, 0.0f);
+		}
+
+		computeDerivedMatrix(PROJ_VIEW_MODEL);
+		glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+		glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+		computeNormalMatrix3x3();
+		glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+		glBindVertexArray(finishLineMeshes[meshId].vao);
+		glDrawElements(finishLineMeshes[meshId].type, finishLineMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		popMatrix(MODEL);
+		meshId++;
+	} while (meshId < finishLineMeshes.size());
+
+	popMatrix(MODEL);
+}
+
+
 void renderBoat(GLint loc) {
 	int meshId = 0;
 
 	pushMatrix(MODEL);
-	// 1. Transladar o barco para a sua posi��o atual
-	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
 
-	// 2. Rodar o barco em torno do eixo Y (depois da transla��o)
-	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  // Rotacionar sobre o pr�prio eixo
+	translate(MODEL, boat.pos[0], boat.pos[1], boat.pos[2]);
+	rotate(MODEL, boat.angle, 0.0f, 1.0f, 0.0f);  
 
 	do {
 		// send the material
@@ -1023,6 +1075,35 @@ void renderGameOverScreen() {
 	glDisable(GL_BLEND);
 }
 
+
+void renderGameWinScreen() {
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	int m_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+	pushMatrix(MODEL);
+	loadIdentity(MODEL);
+	pushMatrix(PROJECTION);
+	loadIdentity(PROJECTION);
+	pushMatrix(VIEW);
+	loadIdentity(VIEW);
+
+	ortho(m_viewport[0], m_viewport[0] + m_viewport[2] - 1, m_viewport[1], m_viewport[1] + m_viewport[3] - 1, -1, 1);
+	RenderText(shaderText, "You Won!", 550.0f, 440.0f, 1.0f, 0.8f, 0.3f, 0.1f);
+	RenderText(shaderText, "Press 'R' to play again", 550.0f, 380.0f, 0.6f, 0.6f, 0.6f, 0.6f);
+
+	popMatrix(PROJECTION);
+	popMatrix(VIEW);
+	popMatrix(MODEL);
+
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+}
+
+
 void renderScene(void) {
 
 	GLint loc;
@@ -1158,6 +1239,7 @@ void renderScene(void) {
 
 	renderCreatures(loc);
 	renderBalls(loc);
+	renderFinishLine(loc);
 
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
@@ -1197,6 +1279,10 @@ void renderScene(void) {
 	}
 	else if (boatGame.state == GAME_OVER) {
 		renderGameOverScreen();
+	}
+
+	else if (boatGame.state == GAME_WIN) {
+		renderGameWinScreen();
 	}
 
 	glutSwapBuffers();
@@ -1564,8 +1650,28 @@ MyMesh createHouses(float height, float radius, int sides, float Sradius, int Sd
 	return amesh; // Return the last created mesh if needed
 }
 
-/*
-*/
+MyMesh createFinishLine(float height, float width, float amb, float diff, float spec, float emissive, float shininess, int texcount, MyMesh amesh) {
+	
+	float amb1[4] = { amb, amb, amb, 1.0f };
+	float diff1[4] = { diff, diff, diff, 1.0f };
+	float spec1[4] = { spec, spec, spec, 1.0f };
+	float emissive1[4] = { emissive, emissive, emissive, 1.0f };
+
+	// Criar o primeiro portão 
+	amesh = createQuad(width, height);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	finishLineMeshes.push_back(amesh);
+
+	// Criar o segundo portão 
+	amesh = createQuad(width, height);
+	setMaterial(amesh, amb, diff, spec, emissive, shininess, texcount);
+	finishLineMeshes.push_back(amesh);
+
+	return amesh;
+}
+
+
+
 void createRows(MyMesh amesh, float baseLength, float amb, float diff, float spec, float emissive, float shininess, int texcount) {
 	// Remos direito e esquerdo
 	amesh = createCylinder(baseLength * (5.0 / 7.0), baseLength / 25.0, 20);	// cabo
@@ -1768,6 +1874,10 @@ void init()
 
 	// Create creatures that swim
 	amesh = createWaterCreatures();
+
+	//Create gates for the finish line
+	amesh = createFinishLine(4.5f, 2.5f, 0.2f, 0.5f, 0.3f, 0.0f, 32.0f, 1, amesh);
+
 
 	// some GL settings
 	glEnable(GL_DEPTH_TEST);

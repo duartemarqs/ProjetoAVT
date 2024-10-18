@@ -1383,7 +1383,7 @@ void renderScene(void) {
 
 	// sets the model matrix to a scale matrix so that the model fits in the window
 	pushMatrix(MODEL);
-	scale(MODEL, scaleFactor*3.0, scaleFactor*3.0, scaleFactor*3.0);
+	scale(MODEL, scaleFactor*6.0, scaleFactor*6.0, scaleFactor*6.0);
 	rotate(MODEL, -90, 1.0, 0.0, 0.0);
 	// translate(MODEL, -5.0, 0.0, -5.0);
 	aiRecursiveRender(scene->mRootNode, assimpMeshes, textureIds);
@@ -2035,7 +2035,7 @@ int init()
 	//Create gates for the finish line
 	amesh = createFinishLine(4.5f, 2.5f, 0.2f, 0.5f, 0.3f, 0.0f, 32.0f, 1, amesh);
 
-	std::string assimpFilePath = "statue/statue.obj";
+	// std::string assimpFilePath = "statue/statue.obj";
 	std::string filePath;
 
 	while (true) {

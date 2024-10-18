@@ -48,6 +48,8 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #define NUM_POINT_LIGHTS 6
+#define frand()			((float)rand()/RAND_MAX)
+#define MAX_PARTICULAS 1500
 #endif
 
 #define NUM_TRANSPARENT_OBJS 3
@@ -90,6 +92,7 @@ vector<struct MyMesh> rowMeshes;
 vector<struct MyMesh> ballMeshes;
 vector<struct MyMesh> finishLineMeshes;
 vector<struct MyMesh> assimpMeshes;
+vector<struct MyMesh> fireworksMeshes;
 
 //External array storage defined in AVTmathLib.cpp
 
@@ -136,6 +139,20 @@ float lightPos[4] = { 4.0f, 6.0f, 2.0f, 1.0f };
 
 //Fog
 bool fogEnabled = false;
+
+//Fireworks
+int fireworks = 0;
+typedef struct {
+	float	life;		// vida
+	float	fade;		// fade
+	float	r, g, b;    // color
+	GLfloat x, y, z;    // posi‹o
+	GLfloat vx, vy, vz; // velocidade 
+	GLfloat ax, ay, az; // acelera‹o
+} Particle;
+
+Particle particula[MAX_PARTICULAS];
+int dead_num_particles = 0;
 
 // Camera -------------
 class Camera {
@@ -370,6 +387,65 @@ float randomFloat(float min, float max) {
 	return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
 }
 
+
+//Fireworks
+void updateParticles()
+{
+	int i;
+	float h;
+
+	/* Método de Euler de integração de eq. diferenciais ordinárias
+	h representa o step de tempo; dv/dt = a; dx/dt = v; e conhecem-se os valores iniciais de x e v */
+
+	//h = 0.125f;
+	h = 0.033;
+	if (fireworks) {
+
+		for (i = 0; i < MAX_PARTICULAS; i++)
+		{
+			particula[i].x += (h * particula[i].vx);
+			particula[i].y += (h * particula[i].vy);
+			particula[i].z += (h * particula[i].vz);
+			particula[i].vx += (h * particula[i].ax);
+			particula[i].vy += (h * particula[i].ay);
+			particula[i].vz += (h * particula[i].az);
+			particula[i].life -= particula[i].fade;
+		}
+	}
+}
+
+
+void iniParticles(void)
+{
+	GLfloat v, theta, phi;
+	int i;
+
+	for (i = 0; i < MAX_PARTICULAS; i++)
+	{
+		v = 0.8 * frand() + 0.2;
+		phi = frand() * M_PI;
+		theta = 2.0 * frand() * M_PI;
+
+		particula[i].x = 0.0f;
+		particula[i].y = 10.0f;
+		particula[i].z = 0.0f;
+		particula[i].vx = v * cos(theta) * sin(phi);
+		particula[i].vy = v * cos(phi);
+		particula[i].vz = v * sin(theta) * sin(phi);
+		particula[i].ax = 0.1f; /* simular um pouco de vento */
+		particula[i].ay = -0.15f; /* simular a aceleração da gravidade */
+		particula[i].az = 0.0f;
+
+		/* tom amarelado que vai ser multiplicado pela textura que varia entre branco e preto */
+		particula[i].r = 0.882f;
+		particula[i].g = 0.552f;
+		particula[i].b = 0.211f;
+
+		particula[i].life = 1.0f;		/* vida inicial */
+		particula[i].fade = 0.0025f;	    /* step de decréscimo da vida para cada iteração */
+	}
+}
+
 // Fun��o para inicializar uma criatura com posi��o e dire��o aleat�rias
 void initCreature(WaterCreature& creature, float maxRadius) {
 	// Define posi��o aleat�ria no plano (x, z) e y = 0
@@ -572,8 +648,10 @@ void animation(int value) {
 
 	// Verificar colisão com a meta
 	if (checkCollision(boatSphere, finishLineSphere)) {
-		std::cout << "Barco alcançou a linha de chegada!" << std::endl;
+		printf("Barco chegou à meta!\n");
 		boatGame.state = GAME_WIN;  
+		iniParticles();
+		fireworks = 1;
 		boat.speed = 0.0f; 
 	}
 
@@ -1250,6 +1328,8 @@ void renderScene(void) {
 	GLint m_view[4];
 
 	FrameCount++;
+	float particle_color[4];
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// load identity matrices
 	loadIdentity(VIEW);
@@ -1396,6 +1476,67 @@ void renderScene(void) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	int m_viewport[4];
 	glGetIntegerv(GL_VIEWPORT, m_viewport);
+
+
+	if (fireworks) {
+
+		//printf("fireeee");
+
+		updateParticles();
+
+		glBindTexture(GL_TEXTURE_2D, TextureArray[1]); //particle.tga associated to TU0 
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glDepthMask(GL_FALSE);  //Depth Buffer Read Only
+
+		glUniform1i(texMode_uniformId, 2); // draw modulated textured particles 
+
+		for (int i = 0; i < MAX_PARTICULAS; i++)
+		{
+			if (particula[i].life > 0.0f) /* só desenha as que ainda estão vivas */
+			{
+
+				/* A vida da partícula representa o canal alpha da cor. Como o blend está activo a cor final é a soma da cor rgb do fragmento multiplicada pelo
+				alpha com a cor do pixel destino */
+
+				particle_color[0] = particula[i].r;
+				particle_color[1] = particula[i].g;
+				particle_color[2] = particula[i].b;
+				particle_color[3] = particula[i].life;
+
+				// send the material - diffuse color modulated with texture
+				loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+				glUniform4fv(loc, 1, particle_color);
+
+				pushMatrix(MODEL);
+				translate(MODEL, particula[i].x, particula[i].y, particula[i].z);
+
+				// send matrices to OGL
+				computeDerivedMatrix(PROJ_VIEW_MODEL);
+				glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+				glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+				computeNormalMatrix3x3();
+				glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+				int meshId = 0;
+				glBindVertexArray(fireworksMeshes[meshId].vao);
+				glDrawElements(fireworksMeshes[meshId].type, fireworksMeshes[meshId].numIndexes, GL_UNSIGNED_INT, 0);
+				popMatrix(MODEL);
+			}
+			else dead_num_particles++;
+		}
+
+		glDepthMask(GL_TRUE); //make depth buffer again writeable
+
+		if (dead_num_particles == MAX_PARTICULAS) {
+			fireworks = 0;
+			dead_num_particles = 0;
+			printf("All particles dead\n");
+		}
+
+	}
 
 	if (boatGame.state == GAME_ACTIVE) {
 		stringstream ss, oss;
@@ -1742,6 +1883,20 @@ void setMaterial(MyMesh& mesh, float amb, float diff, float spec, float emissive
 	mesh.mat.texCount = texcount;
 }
 
+
+MyMesh createParticles() {
+	MyMesh particleMesh;
+
+	int texcount = 0;
+
+	// create geometry and VAO of the quad for particles
+	particleMesh = createQuad(2, 2);
+	particleMesh.mat.texCount = texcount;
+	fireworksMeshes.push_back(particleMesh);
+
+	return particleMesh;
+}
+
 MyMesh createBuoys() {
 	MyMesh buoyMesh;
 
@@ -2034,6 +2189,9 @@ int init()
 
 	//Create gates for the finish line
 	amesh = createFinishLine(4.5f, 2.5f, 0.2f, 0.5f, 0.3f, 0.0f, 32.0f, 1, amesh);
+
+	// Create fireworks
+	amesh = createParticles();
 
 	// std::string assimpFilePath = "statue/statue.obj";
 	std::string filePath;

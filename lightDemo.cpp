@@ -134,6 +134,9 @@ bool flareEffect = false;
 // Camera Position
 float camX, camY, camZ;
 
+// Rear view camera Position
+float rearCamX, rearCamY, rearCamZ;
+
 // Mouse Tracking Variables
 int startX, startY, tracking = 0;
 
@@ -674,7 +677,7 @@ void animation(int value) {
 
 	if (boat.speed > 0) boat.speed *= decaySpeed;
 
-	// Atualizar a câmera
+	// Atualizar a câmera 2
 	float dist = -10.0f;
 	float height = 7.5f;
 
@@ -689,6 +692,23 @@ void animation(int value) {
 	cams[2].camTarget[0] = boat.pos[0];
 	cams[2].camTarget[1] = boat.pos[1];
 	cams[2].camTarget[2] = boat.pos[2];
+
+
+	// Atualizar a câmera 3 
+	float rearHeight = 2.0f;
+
+	rearCamX = boat.pos[0];
+	rearCamY = boat.pos[1] + rearHeight;
+	rearCamZ = boat.pos[2];
+
+	cams[3].camPos[0] = rearCamX;
+	cams[3].camPos[1] = rearCamY;
+	cams[3].camPos[2] = rearCamZ;
+
+	// Definir o alvo da câmara traseira como um ponto atrás do barco
+	cams[3].camTarget[0] = boat.pos[0] - boat.direction[0] * 5.0f;
+	cams[3].camTarget[1] = boat.pos[1];
+	cams[3].camTarget[2] = boat.pos[2] - boat.direction[2] * 5.0f;
 
 	updateCreatures(deltaT, MAX_RADIUS);
 
@@ -1422,6 +1442,43 @@ void renderFlare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly 
 	glDisable(GL_BLEND);
 }
 
+
+void renderRearView() {
+	// Configurar o stencil para limitar a área da visão traseira
+	glEnable(GL_STENCIL_TEST);
+	glClear(GL_STENCIL_BUFFER_BIT);
+
+	glStencilFunc(GL_ALWAYS, 1, 0xFF); // Sempre passa o teste de stencil
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Substitui o valor de stencil com 1
+	glStencilMask(0xFF); // Permite escrita no stencil buffer
+
+	// Definir a área para a visualização da câmera traseira (canto superior direito)
+	glViewport(WinX * 0.7, WinY * 0.7, WinX * 0.3, WinY * 0.3);
+
+	// Desenhar um quadrado na área definida
+	glBegin(GL_QUADS);
+	glVertex2f(-1.0f, -1.0f);
+	glVertex2f(1.0f, -1.0f);
+	glVertex2f(1.0f, 1.0f);
+	glVertex2f(-1.0f, 1.0f);
+	glEnd();
+
+	// Definir o stencil para desenhar apenas nessa região
+	glStencilFunc(GL_EQUAL, 1, 0xFF); // Passa o teste de stencil somente para a região com valor 1
+	glStencilMask(0x00); // Bloqueia escrita no stencil buffer
+
+	// Configurar a câmera traseira
+	gluLookAt(cams[3].camPos[0], cams[3].camPos[1], cams[3].camPos[2],  // Posição da câmera
+		cams[3].camTarget[0], cams[3].camTarget[1], cams[3].camTarget[2],  // Alvo
+		0.0f, 1.0f, 0.0f);  // Vetor up
+
+	// Restaurar o viewport para o resto da cena
+	glViewport(0, 0, WinX, WinY);
+
+	// Desativar o teste de stencil
+	glDisable(GL_STENCIL_TEST);
+}
+
 void renderScene(void) {
 
 	GLint loc;
@@ -1434,8 +1491,6 @@ void renderScene(void) {
 	// load identity matrices
 	loadIdentity(VIEW);
 	loadIdentity(MODEL);
-
-	if (activeCam == 3) lookAt(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
 
 	lookAt(cams[activeCam].camPos[0], cams[activeCam].camPos[1], cams[activeCam].camPos[2],
 		cams[activeCam].camTarget[0], cams[activeCam].camTarget[1], cams[activeCam].camTarget[2],
@@ -1701,6 +1756,7 @@ void renderScene(void) {
 		popMatrix(VIEW);
 	}
 
+	renderRearView();
 	glutSwapBuffers();
 }
 
@@ -2259,13 +2315,8 @@ int init()
 	cams[1].camPos[2] = 0.1;
 	cams[1].type = 1;
 
-	/* Cam[2] � implementada no Animation() */
-
-	// original perspective
-	cams[3].camPos[0] = 1;
-	cams[3].camPos[1] = 1;
-	cams[3].camPos[2] = 1;
-	//cams[3].type = 0;
+	/* Cam[2] implementada no Animation() */
+	/* Cam[3] implementada no Animation() */
 
 	// set the camera position based on its spherical coordinates
 	camX = r * sin(alpha * 3.14f / 180.0f) * cos(beta * 3.14f / 180.0f);
@@ -2375,6 +2426,8 @@ int init()
 	loadFlareFile(&AVTflare, "flare.txt");
 
 	// some GL settings
+	glEnable(GL_STENCIL_TEST);
+	glClear(GL_STENCIL_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);

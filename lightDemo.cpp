@@ -868,7 +868,7 @@ void renderCreatures(GLint loc) {
 		glUniform1f(loc, movingMeshes[meshId].mat.shininess);
 		pushMatrix(MODEL);
 
-		// Transladar criatura para a sua posi��o atual
+		// Transladar criatura para a posi��o atual
 		translate(MODEL, waterCreatures[meshId].pos[0], waterCreatures[meshId].pos[1], waterCreatures[meshId].pos[2]);
 		// Rodar criatura em torno do eixo Y (oscila��es)
 		rotate(MODEL, waterCreatures[meshId].angle, 0.0f, 1.0f, 0.0f);
@@ -1444,40 +1444,147 @@ void renderFlare(FLARE_DEF* flare, int lx, int ly, int* m_viewport) {  //lx, ly 
 
 
 void renderRearView() {
-	// Configurar o stencil para limitar a área da visão traseira
+	GLint loc;
+	GLint m_view[4];
+	float res[4];
+
+	// Ativar o stencil buffer
 	glEnable(GL_STENCIL_TEST);
 	glClear(GL_STENCIL_BUFFER_BIT);
 
-	glStencilFunc(GL_ALWAYS, 1, 0xFF); // Sempre passa o teste de stencil
-	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Substitui o valor de stencil com 1
-	glStencilMask(0xFF); // Permite escrita no stencil buffer
+	// Configurar o stencil para desenhar na área desejada
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-	// Definir a área para a visualização da câmera traseira (canto superior direito)
-	glViewport(WinX * 0.7, WinY * 0.7, WinX * 0.3, WinY * 0.3);
+	// Configurar a viewport para a área do rear view (por exemplo, canto inferior direito)
+	int viewportWidth = 500;  
+	int viewportHeight = 350; 
+	glViewport(glutGet(GLUT_WINDOW_WIDTH) - viewportWidth, 0, viewportWidth, viewportHeight);
 
-	// Desenhar um quadrado na área definida
-	glBegin(GL_QUADS);
-	glVertex2f(-1.0f, -1.0f);
-	glVertex2f(1.0f, -1.0f);
-	glVertex2f(1.0f, 1.0f);
-	glVertex2f(-1.0f, 1.0f);
-	glEnd();
+	loadIdentity(VIEW);
+	lookAt(cams[3].camPos[0], cams[3].camPos[1], cams[3].camPos[2],
+		cams[3].camTarget[0], cams[3].camTarget[1], cams[3].camTarget[2],
+		0, 1, 0);
 
-	// Definir o stencil para desenhar apenas nessa região
-	glStencilFunc(GL_EQUAL, 1, 0xFF); // Passa o teste de stencil somente para a região com valor 1
-	glStencilMask(0x00); // Bloqueia escrita no stencil buffer
+	// Obter o viewport atual
+	glGetIntegerv(GL_VIEWPORT, m_view);
+	float ratio = ((m_view[2] - m_view[0]) / (m_view[3] - m_view[1]));
+	loadIdentity(PROJECTION);
+	perspective(53.13f, ratio, 1, 100);
 
-	// Configurar a câmera traseira
-	gluLookAt(cams[3].camPos[0], cams[3].camPos[1], cams[3].camPos[2],  // Posição da câmera
-		cams[3].camTarget[0], cams[3].camTarget[1], cams[3].camTarget[2],  // Alvo
-		0.0f, 1.0f, 0.0f);  // Vetor up
+	// Usar o shader
+	glUseProgram(shader.getProgramIndex());
 
-	// Restaurar o viewport para o resto da cena
-	glViewport(0, 0, WinX, WinY);
+	// Enviar o estado da névoa
+	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "enableFog"), fogEnabled);
 
-	// Desativar o teste de stencil
+	// Inicializar luz direcional
+	glUniform1i(glGetUniformLocation(shader.getProgramIndex(), "directionalLightstate"), directionalLightState);
+
+	// Inicializar as luzes pontuais
+	for (int i = 0; i < 6; ++i) {
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("pointLight" + std::to_string(i) + "state").c_str()), pointLightState);
+	}
+
+	// Inicializar os spotlights
+	for (int i = 0; i < 2; ++i) {
+		glUniform1i(glGetUniformLocation(shader.getProgramIndex(), ("spotLight" + std::to_string(i) + "state").c_str()), spotLightState);
+	}
+
+	// Para pointlights
+	for (int i = 0; i < 6; ++i) {
+		multMatrixPoint(VIEW, lights[i].position, res);
+		glUniform4fv(lights[i].location, 1, res);
+	}
+
+	// Para a luz direcional
+	multMatrixPoint(VIEW, lights[6].position, res);
+	glUniform4fv(lights[6].location, 1, res);
+
+	// Para spotlights
+	multMatrixPoint(VIEW, lights[7].position, res);
+	glUniform4fv(lights[7].location, 1, res);
+	multMatrixPoint(VIEW, lights[8].position, res);
+	glUniform4fv(lights[8].location, 1, res);
+
+	// Enviar os estados das luzes
+	glUniform1iv(lightStatesLoc, 9, states);
+
+	// Associar os Texture Units aos Objects Texture
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[0]);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[1]);
+
+	// Indicar aos dois samplers do GLSL quais os Texture Units a serem usados
+	glUniform1i(tex_loc, 0);
+	glUniform1i(tex_loc1, 1);
+
+	// Enviar material para os objetos
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+	glUniform4fv(loc, 1, myMeshes[0].mat.ambient);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+	glUniform4fv(loc, 1, myMeshes[0].mat.diffuse);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+	glUniform4fv(loc, 1, myMeshes[0].mat.specular);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+	glUniform1f(loc, myMeshes[0].mat.shininess);
+
+	// Renderizar a cena
+	pushMatrix(MODEL);
+	translate(MODEL, 0.0f, 0.0f, 0.0f);
+	rotate(MODEL, -90, 1, 0, 0);
+
+	// Enviar matrizes para OGL
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+	// Modulate Phong color with texel color for the terrain
+	glUniform1i(texMode_uniformId, 1); // multitexturing
+
+	// Render mesh
+	glBindVertexArray(myMeshes[0].vao);
+	glDrawElements(myMeshes[0].type, myMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	popMatrix(MODEL);
+
+	// Reset texture
+	glUniform1i(texMode_uniformId, 0);
+
+	// Renderizar objetos
+	renderBuoys(loc);;
+	translate(MODEL, -1.0, 0.0, 12.0);
+	renderHouse(loc);
+	translate(MODEL, 1.0, 0.0, -12.0);
+
+	renderTree(loc);
+	renderBoat(loc);
+	renderRows(loc);
+	renderCreatures(loc);
+	renderBalls(loc);
+	renderFinishLine(loc);
+	
+	// sets the model matrix to a scale matrix so that the model fits in the window
+	pushMatrix(MODEL);
+	scale(MODEL, scaleFactor * 6.0, scaleFactor * 6.0, scaleFactor * 6.0);
+	rotate(MODEL, -90, 1.0, 0.0, 0.0);
+	// translate(MODEL, -5.0, 0.0, -5.0);
+	aiRecursiveRender(scene->mRootNode, assimpMeshes, textureIds);
+	popMatrix(MODEL);
+
+	// Desativar o stencil buffer
 	glDisable(GL_STENCIL_TEST);
+
+	// Restaurar a viewport original
+	glViewport(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 }
+
+
 
 void renderScene(void) {
 

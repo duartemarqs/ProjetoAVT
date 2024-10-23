@@ -57,18 +57,6 @@ void main() {
 	else
 		n = normalize(DataIn.normal);
 
-	
-	// old way
-//	vec3 l = normalize(DataIn.lightDir);
-//	intensity = max(dot(n,l), 0.0);
-//
-//	
-//	if (intensity > 0.0) {
-//		vec3 h = normalize(l + e);
-//		float intSpec = max(dot(h,n), 0.0);
-//		spec = mat.specular * pow(intSpec, mat.shininess);
-//	}
-
     vec3 e = normalize(DataIn.eye);
     
 	// Iterate over the light sources
@@ -117,6 +105,11 @@ void main() {
         texel = texture(texmap, DataIn.tex_coord);  
         texel1 = texture(texmap1, DataIn.tex_coord);
         colorOut = max(intensity/3 *texel*texel1 + spec, 0.07*texel*texel1);
+    } else if (texMode == 3) { // 2D lens flare
+        texel = texture(texmap, DataIn.tex_coord);  //texel from element flare texture
+		if((texel.a == 0.0)  || (mat.diffuse.a == 0.0) ) discard;
+		else
+			colorOut = mat.diffuse * texel;
     } else {
         colorOut = max(intensity/3 * mat.diffuse + spec, mat.ambient);
     }

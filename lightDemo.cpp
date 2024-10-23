@@ -1836,6 +1836,8 @@ void renderScene(void) {
 		renderGameWinScreen();
 	}
 
+	renderRearView();
+
 	if (flareEffect && !directionalLightState) {
 
 		int flarePos[2];
@@ -1863,7 +1865,6 @@ void renderScene(void) {
 		popMatrix(VIEW);
 	}
 
-	renderRearView();
 	glutSwapBuffers();
 }
 

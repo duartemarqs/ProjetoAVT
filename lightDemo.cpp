@@ -122,7 +122,7 @@ GLint lightStatesLoc;
 
 // Textures
 GLint tex_loc, tex_loc1;
-GLint texMode_uniformId;
+GLint texMode_uniformId, shadowMode_uniformId;
 GLuint TextureArray[3];
 GLuint FlareTextureArray[5];
 
@@ -568,7 +568,7 @@ void updateSpotlights() {
 	lights[8].position[1] = boatPosY + 2.0f;
 	lights[8].position[2] = boatPosZ - distanceFromBoat * sin(angleRad);
 
-	printf("Posição do barco: x = %f, y = %f, z = %f\n", boat.pos[0], boat.pos[1], boat.pos[2]);
+	//printf("Posição do barco: x = %f, y = %f, z = %f\n", boat.pos[0], boat.pos[1], boat.pos[2]);
 
 	lights[7].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight0location");
 	lights[8].location = glGetUniformLocation(shader.getProgramIndex(), "spotLight1location");
@@ -1586,6 +1586,73 @@ void renderRearView() {
 
 
 
+void draw_objects(GLint loc) {
+	// Render and transform buoys
+	renderBuoys(loc);
+
+	// Transform and render house
+	translate(MODEL, -1.0, 0.0, 12.0);
+	renderHouse(loc);
+	translate(MODEL, 1.0, 0.0, -12.0);
+
+	// Render tree, boat, and rows
+	renderTree(loc);
+	renderBoat(loc);
+	renderRows(loc);
+
+	// Render dynamic objects like creatures and balls
+	renderCreatures(loc);
+	renderBalls(loc);
+
+	// Render the finish line
+	renderFinishLine(loc);
+}
+
+
+
+static void draw_mirror(void) // Espelho especular utilizando o terreno
+{
+	GLint loc;
+
+	// Enviar material para o terreno
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.ambient");
+	glUniform4fv(loc, 1, myMeshes[0].mat.ambient);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.diffuse");
+	glUniform4fv(loc, 1, myMeshes[0].mat.diffuse);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.specular");
+	glUniform4fv(loc, 1, myMeshes[0].mat.specular);
+	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
+	glUniform1f(loc, myMeshes[0].mat.shininess);
+
+	// Ajustar a matriz do modelo
+	pushMatrix(MODEL);
+
+	translate(MODEL, 0.0f, 0.0f, 0.0f); 
+	rotate(MODEL, -90, 1, 0, 0); 
+
+	// Enviar matrizes para OGL
+	computeDerivedMatrix(PROJ_VIEW_MODEL);
+	glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+	glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+	computeNormalMatrix3x3();
+	glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+	// Modular a cor Phong com a cor texel para o terreno
+	glUniform1i(texMode_uniformId, 1); // multitexturing
+
+	// Renderizar o terreno
+	glBindVertexArray(myMeshes[0].vao); 
+	glDrawElements(myMeshes[0].type, myMeshes[0].numIndexes, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	// Restaurar a matriz do modelo
+	popMatrix(MODEL);
+}
+
+
+
+
+
 void renderScene(void) {
 
 	GLint loc;
@@ -1680,6 +1747,7 @@ void renderScene(void) {
 	glUniform4fv(loc, 1, myMeshes[0].mat.specular);
 	loc = glGetUniformLocation(shader.getProgramIndex(), "mat.shininess");
 	glUniform1f(loc, myMeshes[0].mat.shininess);
+
 	pushMatrix(MODEL);
 	translate(MODEL, 0.0f, 0.0f, 0.0f);
 
@@ -1703,25 +1771,87 @@ void renderScene(void) {
 
 	popMatrix(MODEL);
 
-	// Reset texture
-	glUniform1i(texMode_uniformId, 0);
+	//Planar shadows + reflections
+	float res2[4];
+	float mat[16];
+	GLfloat plano_chao[4] = { 0,1,0,0 };
 
-	// Render and transform objects
-	renderBuoys(loc);
+	glEnable(GL_DEPTH_TEST);
 
-	// scale(MODEL, 0.5, 1.0, 0.5);
-	translate(MODEL, -1.0, 0.0, 12.0);
-	renderHouse(loc);
-	translate(MODEL, 1.0, 0.0, -12.0);
-	// scale(MODEL, -0.5, -1.0, -0.5);
+	if (camY > -7.0f) {  //camera in front of the floor so render reflections and shadows. Inner product between the viewing direction and the normal of the ground
 
-	renderTree(loc);
-	renderBoat(loc);
-	renderRows(loc);
+		//printf("cam acima de 0");
+		lightPos[0] = 20.0f;
+		lightPos[1] = 20.0f;
+        lightPos[2] = 20.0f;
 
-	renderCreatures(loc);
-	renderBalls(loc);
-	renderFinishLine(loc);
+		glEnable(GL_STENCIL_TEST);        // Escrever 1 no stencil buffer onde se for desenhar a reflexão e a sombra
+		glStencilFunc(GL_NEVER, 0x1, 0x1);
+		glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+
+		// Fill stencil buffer with Ground shape; never rendered into color buffer
+		draw_mirror();
+
+		glUniform1i(shadowMode_uniformId, 0);  //iluminação phong
+
+		// Desenhar apenas onde o stencil buffer esta a 1
+		glStencilFunc(GL_EQUAL, 0x1, 0x1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+		// Render the reflected geometry
+		lightPos[1] *= (-1.0f);  //mirror the position of light
+		multMatrixPoint(VIEW, lightPos, res2);
+
+		glUniform4fv(lPos_uniformId, 1, res2);
+		pushMatrix(MODEL);
+		scale(MODEL, 1.0f, -1.0f, 1.0f);
+		glCullFace(GL_FRONT);
+		// Reset texture
+		glUniform1i(texMode_uniformId, 0);
+		draw_objects(loc); //desenha objetos refletidos
+		glCullFace(GL_BACK);
+		popMatrix(MODEL);
+
+		lightPos[1] *= (-1.0f);  //reset the light position
+		multMatrixPoint(VIEW, lightPos, res2);
+		glUniform4fv(lPos_uniformId, 1, res2);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);		// Blend specular Ground with reflected geometry
+		draw_mirror();
+
+		// Render the Shadows
+		glUniform1i(shadowMode_uniformId, 1);  //Render with constant color
+		shadow_matrix(mat, plano_chao, lightPos);
+
+		glDisable(GL_DEPTH_TEST); //To force the shadow geometry to be rendered even if behind the floor
+
+		//Dark the color stored in color buffer
+		glBlendFunc(GL_DST_COLOR, GL_ZERO);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+
+		pushMatrix(MODEL);
+		multMatrix(MODEL, mat);
+		draw_objects(loc); //sombra dos objetos
+		popMatrix(MODEL);
+
+		glDisable(GL_STENCIL_TEST);
+		glDisable(GL_BLEND);
+		glEnable(GL_DEPTH_TEST);
+
+		//render the geometry
+		glUniform1i(shadowMode_uniformId, 0);
+		// Reset texture
+		glUniform1i(texMode_uniformId, 0);
+		draw_objects(loc); //desenha os objetos
+	}
+	else {  //Camera behind the floor so render only the opaque objects
+		glUniform1i(shadowMode_uniformId, 0);
+		draw_mirror();
+		// Reset texture
+		glUniform1i(texMode_uniformId, 0);
+		draw_objects(loc);
+	}
 
 	// sets the model matrix to a scale matrix so that the model fits in the window
 	pushMatrix(MODEL);
@@ -2119,6 +2249,7 @@ GLuint setupShaders() {
 	}
 
 	texMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "texMode"); // different modes of texturing
+	shadowMode_uniformId = glGetUniformLocation(shader.getProgramIndex(), "shadowMode");
 	pvm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_pvm");
 	vm_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_viewModel");
 	normal_uniformId = glGetUniformLocation(shader.getProgramIndex(), "m_normal");

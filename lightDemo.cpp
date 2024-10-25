@@ -46,6 +46,7 @@
 #include "Texture_Loader.h"
 
 #include "avtFreeType.h"
+#include "l3dBillboard.h"
 
 // Macro definitions
 #ifndef M_PI
@@ -56,7 +57,7 @@
 #endif
 
 #define NUM_TRANSPARENT_OBJS 3
-#define NUM_BUOYS 5
+#define NUM_BUOYS 4
 #define NUM_CREATURES 8
 #define MAX_RADIUS 25.0
 
@@ -123,7 +124,7 @@ GLint lightStatesLoc;
 // Textures
 GLint tex_loc, tex_loc1;
 GLint texMode_uniformId, shadowMode_uniformId;
-GLuint TextureArray[3];
+GLuint TextureArray[4];
 GLuint FlareTextureArray[5];
 
 // Flare effect (for directional light)
@@ -239,7 +240,7 @@ Sphere buoySpheres[5] = {
 	{ { 12.0f, 0.2f, 6.5f }, 1.0f }, // buoy 2
 	{ { 18.0f, 0.2f, 3.0f }, 1.0f }, // buoy 3
 	{ { 6.0f, 0.2f, 5.0f }, 1.0f },  // buoy 4
-	{ { 22.0f, 0.2f, -1.0f }, 1.0f } // buoy 5
+	{ { 1022.0f, 0.2f, -1.0f }, 1.0f } // buoy 5
 };
 
 Sphere finishLineSphere = { { -17.0f, 0.2f, 0.0f }, 2.0f }; // Centro entre os portões, raio ajustado
@@ -1861,6 +1862,72 @@ void renderScene(void) {
 	aiRecursiveRender(scene->mRootNode, assimpMeshes, textureIds);
 	popMatrix(MODEL);
 
+
+
+	// --------------------- Billboards ----------------------- /
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TextureArray[2]);  // Associa a textura das árvores a TU0
+
+	glUniform1i(tex_loc, 0); // Define o *texture unit* no shader
+
+	// Ativar blending para a transparência
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Definir o modo da textura para desenhar quads texturizados
+	glUniform1i(texMode_uniformId, 4);  // Usar quads texturizados
+
+	float cam[3];
+
+	// Acessa a posição da câmera ativa
+	cam[0] = cams[3].camPos[0];
+	cam[1] = cams[3].camPos[1];
+	cam[2] = cams[3].camPos[2];
+
+	// Create geometry and VAO of the quad for trees
+	int meshIndex = 5;  // Assumindo que o índice 5 será usado para as árvores
+	//tree specular color
+	float tree_spec[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	float tree_shininess = 10.0f;
+	float spec[] = { 0.9f, 0.9f, 0.9f, 1.0f };
+	float emissive[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float shininess = 1000.0f;
+	int texcount = 0;
+
+	// Cria o quad com as dimensões necessárias (6x6, no caso)
+	myMeshes[meshIndex] = createQuad(6, 6);
+
+	// Copia as propriedades do material (especular, emissiva e brilho) para o mesh
+	memcpy(myMeshes[meshIndex].mat.specular, tree_spec, 4 * sizeof(float));
+	memcpy(myMeshes[meshIndex].mat.emissive, emissive, 4 * sizeof(float));
+	myMeshes[meshIndex].mat.shininess = tree_shininess;
+	myMeshes[meshIndex].mat.texCount = texcount;  // Define o número de texturas
+
+			pushMatrix(MODEL);
+
+			// Posição da árvore
+			float pos[3] = { 10.0f, 3, 10.0f };
+			translate(MODEL, pos[0], pos[1], pos[2]);
+
+			// Determinar o tipo de *billboard*: esférico ou cilíndrico
+			//	l3dBillboardSphericalBegin(cam, pos); 		
+				l3dBillboardCylindricalBegin(cam, pos); 
+
+			// Enviar a matriz e desenhar o quad para a árvore
+			computeDerivedMatrix(PROJ_VIEW_MODEL);
+			glUniformMatrix4fv(vm_uniformId, 1, GL_FALSE, mCompMatrix[VIEW_MODEL]);
+			glUniformMatrix4fv(pvm_uniformId, 1, GL_FALSE, mCompMatrix[PROJ_VIEW_MODEL]);
+			computeNormalMatrix3x3();
+			glUniformMatrix3fv(normal_uniformId, 1, GL_FALSE, mNormal3x3);
+
+			glBindVertexArray(myMeshes[5].vao);  // Supondo que a malha 5 é o quad da árvore
+			glDrawElements(myMeshes[5].type, myMeshes[5].numIndexes, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+
+			popMatrix(MODEL);
+
+
+
 	//Render text (bitmap fonts) in screen coordinates. So use ortoghonal projection with viewport coordinates.
 	glDisable(GL_DEPTH_TEST);
 	//the glyph contains transparent background colors and non-transparent for the actual character pixels. So we use the blending
@@ -2571,6 +2638,7 @@ int init()
 	glGenTextures(2, TextureArray);
 	Texture2D_Loader(TextureArray, "just_water.jfif", 0);
 	Texture2D_Loader(TextureArray, "wrinkled-paper.jpg", 1);
+	Texture2D_Loader(TextureArray, "tree.tga", 2);
 
 	//Flare elements textures
 	glGenTextures(5, FlareTextureArray);

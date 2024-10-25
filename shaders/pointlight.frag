@@ -110,7 +110,15 @@ void main() {
 		if((texel.a == 0.0)  || (mat.diffuse.a == 0.0) ) discard;
 		else
 			colorOut = mat.diffuse * texel;
-    } else {
+    } 
+    else if (texMode == 4)  {  // tree texture for billboard
+		texel = texture(texmap, DataIn.tex_coord);  
+		
+		if(texel.a == 0.0) discard;
+		else
+			colorOut = vec4(max(intensity * texel.rgb + spec.rgb, 0.1 * texel.rgb), texel.a);
+		}
+    else {
         colorOut = max(intensity/3 * mat.diffuse + spec, mat.ambient);
     }
 
